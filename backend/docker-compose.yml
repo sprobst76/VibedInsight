@@ -3,7 +3,7 @@
 # Nutzt bestehendes ai-lab Netzwerk für Ollama + Traefik
 
 networks:
-  ai-lab_ai-lab:
+  ailab_ai-lab:
     external: true
 
 services:
@@ -18,7 +18,7 @@ services:
         reservations:
           memory: 128M
     networks:
-      - ai-lab_ai-lab
+      - ailab_ai-lab
     environment:
       - TZ=${TZ:-Europe/Berlin}
       - POSTGRES_USER=vibedinsight
@@ -49,7 +49,7 @@ services:
         reservations:
           memory: 64M
     networks:
-      - ai-lab_ai-lab
+      - ailab_ai-lab
     environment:
       - TZ=${TZ:-Europe/Berlin}
       - DATABASE_URL=postgresql+asyncpg://vibedinsight:${POSTGRES_PASSWORD}@vibedinsight-postgres:5432/vibedinsight
