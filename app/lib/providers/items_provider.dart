@@ -172,9 +172,9 @@ final itemsProvider = StateNotifierProvider<ItemsNotifier, ItemsState>((ref) {
   return ItemsNotifier(apiClient);
 });
 
-// Single item provider
+// Single item provider (with relations)
 final itemDetailProvider =
-    FutureProvider.family<ContentItem, int>((ref, id) async {
+    FutureProvider.family<ContentItemWithRelations, int>((ref, id) async {
   final apiClient = ref.watch(apiClientProvider);
-  return apiClient.getItem(id);
+  return apiClient.getItemWithRelations(id);
 });

@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Table, Text
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, String, Table, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -19,6 +19,14 @@ class ProcessingStatus(str, enum.Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class RelationType(str, enum.Enum):
+    RELATED = "related"         # Allgemein verwandt
+    EXTENDS = "extends"         # Erweitert/vertieft
+    CONTRADICTS = "contradicts" # Widerspricht
+    SIMILAR = "similar"         # Ähnlicher Inhalt
+    REFERENCES = "references"   # Referenziert/zitiert
 
 
 # Association table for many-to-many relationship
@@ -70,3 +78,40 @@ class ContentItem(Base):
 
     # Relationships
     topics: Mapped[list[Topic]] = relationship(secondary=content_topics, back_populates="items")
+
+    # Graph relations (outgoing)
+    outgoing_relations: Mapped[list["ItemRelation"]] = relationship(
+        "ItemRelation",
+        foreign_keys="ItemRelation.source_id",
+        back_populates="source_item",
+        cascade="all, delete-orphan",
+    )
+
+    # Graph relations (incoming)
+    incoming_relations: Mapped[list["ItemRelation"]] = relationship(
+        "ItemRelation",
+        foreign_keys="ItemRelation.target_id",
+        back_populates="target_item",
+        cascade="all, delete-orphan",
+    )
+
+
+class ItemRelation(Base):
+    """Pseudo-Graph: Beziehungen zwischen Content Items."""
+
+    __tablename__ = "item_relations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), index=True)
+    relation_type: Mapped[RelationType] = mapped_column(Enum(RelationType), default=RelationType.RELATED)
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0 - 1.0
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    source_item: Mapped["ContentItem"] = relationship(
+        "ContentItem", foreign_keys=[source_id], back_populates="outgoing_relations"
+    )
+    target_item: Mapped["ContentItem"] = relationship(
+        "ContentItem", foreign_keys=[target_id], back_populates="incoming_relations"
+    )

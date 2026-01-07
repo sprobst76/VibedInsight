@@ -114,6 +114,115 @@ class ContentItem {
   bool get hasSummary => summary != null && summary!.isNotEmpty;
 }
 
+enum RelationType {
+  related,
+  extends_,
+  contradicts,
+  similar,
+  references;
+
+  static RelationType fromString(String value) {
+    if (value == 'extends') return RelationType.extends_;
+    return RelationType.values.firstWhere(
+      (e) => e.name == value || e.name == '${value}_',
+      orElse: () => RelationType.related,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case RelationType.related:
+        return 'Related';
+      case RelationType.extends_:
+        return 'Extends';
+      case RelationType.contradicts:
+        return 'Contradicts';
+      case RelationType.similar:
+        return 'Similar';
+      case RelationType.references:
+        return 'References';
+    }
+  }
+}
+
+class RelatedItem {
+  final int id;
+  final String? title;
+  final String? source;
+  final RelationType relationType;
+  final double confidence;
+
+  RelatedItem({
+    required this.id,
+    this.title,
+    this.source,
+    required this.relationType,
+    required this.confidence,
+  });
+
+  factory RelatedItem.fromJson(Map<String, dynamic> json) {
+    return RelatedItem(
+      id: json['id'] as int,
+      title: json['title'] as String?,
+      source: json['source'] as String?,
+      relationType: RelationType.fromString(json['relation_type'] as String),
+      confidence: (json['confidence'] as num).toDouble(),
+    );
+  }
+
+  String get displayTitle => title ?? 'Untitled';
+}
+
+class ContentItemWithRelations extends ContentItem {
+  final List<RelatedItem> relatedItems;
+
+  ContentItemWithRelations({
+    required super.id,
+    required super.contentType,
+    required super.status,
+    super.url,
+    super.title,
+    super.source,
+    super.rawText,
+    super.summary,
+    required super.createdAt,
+    super.updatedAt,
+    super.processedAt,
+    super.topics,
+    this.relatedItems = const [],
+  });
+
+  factory ContentItemWithRelations.fromJson(Map<String, dynamic> json) {
+    return ContentItemWithRelations(
+      id: json['id'] as int,
+      contentType: ContentType.fromString(json['content_type'] as String),
+      status: ProcessingStatus.fromString(json['status'] as String),
+      url: json['url'] as String?,
+      title: json['title'] as String?,
+      source: json['source'] as String?,
+      rawText: json['raw_text'] as String?,
+      summary: json['summary'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
+      processedAt: json['processed_at'] != null
+          ? DateTime.parse(json['processed_at'] as String)
+          : null,
+      topics: (json['topics'] as List<dynamic>?)
+              ?.map((e) => Topic.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      relatedItems: (json['related_items'] as List<dynamic>?)
+              ?.map((e) => RelatedItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+
+  bool get hasRelatedItems => relatedItems.isNotEmpty;
+}
+
 class PaginatedItems {
   final List<ContentItem> items;
   final int total;

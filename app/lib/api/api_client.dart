@@ -63,6 +63,11 @@ class ApiClient {
     return ContentItem.fromJson(response.data);
   }
 
+  Future<ContentItemWithRelations> getItemWithRelations(int id) async {
+    final response = await _dio.get('/items/$id/relations');
+    return ContentItemWithRelations.fromJson(response.data);
+  }
+
   Future<void> deleteItem(int id) async {
     await _dio.delete('/items/$id');
   }

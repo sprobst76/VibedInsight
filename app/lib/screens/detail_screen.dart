@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -24,7 +25,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -64,7 +65,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
     );
   }
 
-  Widget _buildContent(ContentItem item) {
+  Widget _buildContent(ContentItemWithRelations item) {
     return Scaffold(
       appBar: AppBar(
         title: Text(item.displayTitle, maxLines: 1),
@@ -107,9 +108,34 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Summary'),
-            Tab(text: 'Original'),
+          tabs: [
+            const Tab(text: 'Summary'),
+            const Tab(text: 'Original'),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Related'),
+                  if (item.relatedItems.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${item.relatedItems.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -125,6 +151,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
               children: [
                 _buildSummaryTab(item),
                 _buildOriginalTab(item),
+                _buildRelatedTab(item),
               ],
             ),
           ),
@@ -296,6 +323,177 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               height: 1.5,
             ),
+      ),
+    );
+  }
+
+  Widget _buildRelatedTab(ContentItemWithRelations item) {
+    if (item.relatedItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.hub_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No related items',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Items with shared topics will appear here',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: item.relatedItems.length,
+      itemBuilder: (context, index) {
+        final related = item.relatedItems[index];
+        return _buildRelatedItemCard(related);
+      },
+    );
+  }
+
+  Widget _buildRelatedItemCard(RelatedItem related) {
+    // Color based on relation type
+    Color relationColor;
+    IconData relationIcon;
+
+    switch (related.relationType) {
+      case RelationType.extends_:
+        relationColor = Colors.blue;
+        relationIcon = Icons.add_circle_outline;
+        break;
+      case RelationType.contradicts:
+        relationColor = Colors.red;
+        relationIcon = Icons.cancel_outlined;
+        break;
+      case RelationType.similar:
+        relationColor = Colors.green;
+        relationIcon = Icons.compare_arrows;
+        break;
+      case RelationType.references:
+        relationColor = Colors.purple;
+        relationIcon = Icons.format_quote;
+        break;
+      case RelationType.related:
+        relationColor = Colors.grey;
+        relationIcon = Icons.link;
+        break;
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => context.push('/item/${related.id}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Relation type icon
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: relationColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(relationIcon, color: relationColor, size: 24),
+              ),
+              const SizedBox(width: 16),
+
+              // Title and metadata
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      related.displayTitle,
+                      style: Theme.of(context).textTheme.titleSmall,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: relationColor.withAlpha(25),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            related.relationType.displayName,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: relationColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        if (related.source != null) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              related.source!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    // Confidence indicator
+                    if (related.confidence < 1.0) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 60,
+                            child: LinearProgressIndicator(
+                              value: related.confidence,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              color: relationColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${(related.confidence * 100).toInt()}%',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Arrow
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

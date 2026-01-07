@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, HttpUrl
 
-from app.models.content import ContentType, ProcessingStatus
+from app.models.content import ContentType, ProcessingStatus, RelationType
 
 
 # Topic schemas
@@ -83,3 +83,32 @@ class PaginatedResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+# Item Relations (Knowledge Graph)
+class RelatedItemResponse(BaseModel):
+    """Ein verwandtes Item mit Beziehungsinfo."""
+    id: int
+    title: str | None
+    source: str | None
+    relation_type: RelationType
+    confidence: float
+
+    model_config = {"from_attributes": True}
+
+
+class ItemRelationResponse(BaseModel):
+    """Vollständige Beziehungsinformation."""
+    id: int
+    source_id: int
+    target_id: int
+    relation_type: RelationType
+    confidence: float
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ContentItemWithRelationsResponse(ContentItemResponse):
+    """Content Item mit verwandten Items."""
+    related_items: list[RelatedItemResponse] = []
