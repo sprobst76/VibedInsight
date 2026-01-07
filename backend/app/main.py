@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import items, ingest, topics
+from app.routers import ingest, items, topics
 
 
 @asynccontextmanager

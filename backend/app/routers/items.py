@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.content import ContentItem
-from app.schemas import ContentItemResponse, ContentItemListResponse, PaginatedResponse
+from app.schemas import ContentItemListResponse, ContentItemResponse, PaginatedResponse
 
 router = APIRouter()
 

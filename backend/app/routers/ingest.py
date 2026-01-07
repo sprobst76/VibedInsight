@@ -3,12 +3,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.content import ContentItem, ContentType, ProcessingStatus, Topic
-from app.schemas import ContentItemResponse, IngestURLRequest, IngestTextRequest
+from app.schemas import ContentItemResponse, IngestTextRequest, IngestURLRequest
 from app.services.extractor import extract_from_url
 from app.services.summarizer import extract_topics, generate_summary
 
