@@ -1,0 +1,103 @@
+name: Flutter Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v0.1.0'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Run tests
+        working-directory: app
+        run: flutter test
+        continue-on-error: true
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          VERSION=${{ github.event.inputs.version || github.ref_name }}
+          mv app/build/app/outputs/flutter-apk/app-release.apk \
+             app/build/app/outputs/flutter-apk/vibedinsight-${VERSION}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: app/build/app/outputs/flutter-apk/vibedinsight-*.apk
+
+  release:
+    name: Create GitHub Release
+    needs: build-android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: ./artifacts
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${{ github.event.inputs.version || github.ref_name }}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: VibedInsight ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## VibedInsight ${{ steps.version.outputs.VERSION }}
+
+            ### Installation
+            1. Download `vibedinsight-${{ steps.version.outputs.VERSION }}.apk`
+            2. Enable "Install from unknown sources" on your Android device
+            3. Install the APK
+
+            ### Features
+            - Collect links, articles, and notes
+            - AI-powered summaries via Ollama
+            - Automatic topic extraction
+            - Share Sheet integration
+
+            ### Requirements
+            - Android 6.0+
+            - VibedInsight backend running on your server
+          files: ./artifacts/vibedinsight-*.apk
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, 'alpha') || contains(steps.version.outputs.VERSION, 'beta') }}
