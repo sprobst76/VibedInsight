@@ -6,11 +6,11 @@ This document tracks planned features, improvements, and known issues.
 
 ### High Priority
 
-- [ ] **Search functionality** - Full-text search across titles, summaries, and content
-- [ ] **Filtering by topic** - Filter inbox by assigned topics
+- [x] **Search functionality** - Full-text search across titles and summaries ✅
+- [x] **Filtering by topic** - Filter inbox by assigned topics ✅
+- [x] **Notes creation** - Create notes directly in app ✅
 - [ ] **Sorting options** - Sort by date, title, status
 - [ ] **Bulk actions** - Select multiple items for delete/reprocess
-- [ ] **Offline mode** - Cache items locally for offline reading
 
 ### Medium Priority
 
@@ -18,6 +18,102 @@ This document tracks planned features, improvements, and known issues.
 - [ ] **Favorites/Bookmarks** - Mark important items
 - [ ] **Reading progress** - Track read/unread status
 - [ ] **Archive functionality** - Move items to archive instead of delete
+
+---
+
+## Offline Mode (geplant)
+
+### Ziel
+Items lokal cachen für Offline-Lesen und später synchronisieren.
+
+### Technischer Ansatz
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Flutter App    │────▶│  Local SQLite   │────▶│  Remote API     │
+│  (UI)           │     │  (drift)        │     │  (FastAPI)      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+### Herausforderungen
+
+1. **Speicherverbrauch**
+   - Jeder Content-Item hat `raw_text` (kann mehrere KB sein)
+   - Summaries + Topics kommen dazu
+   - Bei 1000+ Items: mehrere MB lokaler Speicher
+
+2. **Sync-Konflikte**
+   - Was passiert wenn offline erstellt und online geändert?
+   - Last-write-wins vs. Merge-Strategie?
+
+3. **Initiale Sync-Zeit**
+   - Alle Items beim ersten Start laden?
+   - Oder nur Metadaten + Lazy-Load Content?
+
+4. **Cache-Invalidierung**
+   - Wann wird Cache aktualisiert?
+   - TTL (Time-to-Live) vs. Event-basiert?
+
+### Implementierungsoptionen
+
+**Option A: Einfacher Cache (empfohlen für Start)**
+- Nur gelesene Items cachen
+- Online-First, Fallback auf Cache bei Fehler
+- Kein Offline-Erstellen
+
+**Option B: Voller Offline-Support**
+- Alle Items syncen
+- Offline-Queue für neue Items
+- Konflikt-Resolution nötig
+
+---
+
+## Knowledge Graph - Lightweight Optionen
+
+### Das Problem
+Neo4j braucht viel RAM (min. 512MB-1GB) und ist für kleine VPS überdimensioniert.
+
+### Alternativen für "Knowledge Graph für Arme"
+
+| Option | RAM | Vorteile | Nachteile |
+|--------|-----|----------|-----------|
+| **PostgreSQL + Join-Tabellen** | ~50MB | Bereits vorhanden, einfach | Keine echten Graph-Queries |
+| **SQLite + Recursive CTEs** | ~10MB | Sehr leicht, lokal | Begrenzte Graph-Operationen |
+| **DuckDB** | ~100MB | Analytisch stark, embedded | Nicht für OLTP optimiert |
+| **Kuzu** | ~50MB | Embedded Graph DB | Noch jung, weniger Tooling |
+| **EdgeDB** | ~200MB | Graph + Relational | Mehr Overhead als Postgres |
+
+### Empfehlung: "Pseudo-Graph" in PostgreSQL
+
+Statt Neo4j:
+```sql
+-- Beziehungstabelle
+CREATE TABLE item_relations (
+    source_id INT REFERENCES content_items(id),
+    target_id INT REFERENCES content_items(id),
+    relation_type VARCHAR(50),  -- 'related', 'contradicts', 'extends'
+    confidence FLOAT,
+    created_at TIMESTAMP
+);
+
+-- Topics als implizite Verbindungen nutzen
+-- Items mit gleichen Topics sind "related"
+```
+
+**Vorteile:**
+- Kein zusätzlicher Service
+- ~0 MB extra RAM
+- Ollama kann Beziehungen beim Processing extrahieren
+
+**Einschränkungen:**
+- Keine tiefe Graph-Traversierung (nur 1-2 Hops praktikabel)
+- Kein PageRank oder ähnliche Graph-Algorithmen
+
+### Wann doch Neo4j?
+- >10.000 Items mit komplexen Beziehungen
+- Graph-Exploration als Kernfeature
+- "Was beeinflusst X über 3+ Ecken?"
+
+---
 
 ## v0.3.0 - Collections & Organization
 
@@ -31,7 +127,7 @@ This document tracks planned features, improvements, and known issues.
 - [ ] **Custom prompts** - User-configurable summarization prompts
 - [ ] **Multiple AI models** - Support different Ollama models per task
 - [ ] **Key insights extraction** - Extract bullet points from content
-- [ ] **Related content** - AI-powered content recommendations
+- [ ] **Related content** - AI-powered content recommendations (via Pseudo-Graph)
 - [ ] **Question answering** - Ask questions about saved content
 
 ## v0.5.0 - Sync & Export
@@ -50,6 +146,8 @@ This document tracks planned features, improvements, and known issues.
 - [ ] **Monitoring & metrics** - Prometheus/Grafana integration
 - [ ] **Backup & restore** - Automated database backups
 - [ ] **iOS support** - iOS app build and distribution
+
+---
 
 ## Technical Debt & Improvements
 
