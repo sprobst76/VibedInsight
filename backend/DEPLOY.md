@@ -8,32 +8,51 @@ Für VPS mit bestehendem ai-lab Setup (Traefik + Ollama).
 - Docker Netzwerk `ai-lab` existiert
 - Ollama + Traefik laufen bereits
 
-## Installation
+## Quick Install (mit Deploy-Script)
+
+```bash
+cd /srv
+git clone https://github.com/sprobst76/VibedInsight.git vibedinsight
+cd vibedinsight
+./deploy.sh install
+```
+
+Das Script fragt nach der Domain und generiert automatisch ein sicheres Passwort.
+
+## Deploy-Script Befehle
+
+| Befehl | Beschreibung |
+|--------|--------------|
+| `./deploy.sh install` | Erstinstallation |
+| `./deploy.sh update` | Aktualisieren (git pull + rebuild) |
+| `./deploy.sh status` | Status + Health Check |
+| `./deploy.sh logs` | API Logs anzeigen |
+| `./deploy.sh logs postgres` | DB Logs anzeigen |
+| `./deploy.sh backup` | Datenbank-Backup erstellen |
+| `./deploy.sh restart` | Services neu starten |
+| `./deploy.sh stop` | Services stoppen |
+
+## Manuelle Installation
 
 ### 1. Repository klonen
 
 ```bash
 cd /srv
-git clone <repo-url> vibedinsight
-cd vibedinsight
+git clone https://github.com/sprobst76/VibedInsight.git vibedinsight
 ```
 
 ### 2. Konfiguration
 
 ```bash
+cd vibedinsight/backend
 cp .env.example .env
 nano .env
 ```
 
-Setze mindestens:
+Setze:
 ```bash
-DOMAIN=deine-domain.com          # Gleiche Domain wie in ai-lab
-POSTGRES_PASSWORD=sicheres-pw    # Neues Passwort generieren
-```
-
-Tipp für sicheres Passwort:
-```bash
-openssl rand -base64 24
+DOMAIN=deine-domain.com
+POSTGRES_PASSWORD=$(openssl rand -base64 24)
 ```
 
 ### 3. Starten
@@ -45,14 +64,7 @@ docker compose up -d
 ### 4. Prüfen
 
 ```bash
-# Logs
-docker compose logs -f api
-
-# Health Check
 curl https://insight.lab.DEINE_DOMAIN/health
-
-# Swagger UI
-open https://insight.lab.DEINE_DOMAIN/docs
 ```
 
 ## Struktur auf VPS
