@@ -4,6 +4,7 @@
 
 networks:
   ai-lab:
+    name: ai-lab_ai-lab
     external: true
 
 services:
