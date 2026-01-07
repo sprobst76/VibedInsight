@@ -11,6 +11,8 @@ class ItemsState {
   final bool hasMore;
   final int currentPage;
   final String? error;
+  final String? searchQuery;
+  final int? selectedTopicId;
 
   ItemsState({
     this.items = const [],
@@ -18,6 +20,8 @@ class ItemsState {
     this.hasMore = true,
     this.currentPage = 0,
     this.error,
+    this.searchQuery,
+    this.selectedTopicId,
   });
 
   ItemsState copyWith({
@@ -26,6 +30,10 @@ class ItemsState {
     bool? hasMore,
     int? currentPage,
     String? error,
+    String? searchQuery,
+    int? selectedTopicId,
+    bool clearSearch = false,
+    bool clearTopic = false,
   }) {
     return ItemsState(
       items: items ?? this.items,
@@ -33,8 +41,12 @@ class ItemsState {
       hasMore: hasMore ?? this.hasMore,
       currentPage: currentPage ?? this.currentPage,
       error: error,
+      searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
+      selectedTopicId: clearTopic ? null : (selectedTopicId ?? this.selectedTopicId),
     );
   }
+
+  bool get hasFilters => searchQuery != null || selectedTopicId != null;
 }
 
 class ItemsNotifier extends StateNotifier<ItemsState> {
@@ -54,7 +66,11 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     );
 
     try {
-      final result = await _apiClient.getItems(page: page);
+      final result = await _apiClient.getItems(
+        page: page,
+        topicId: state.selectedTopicId,
+        search: state.searchQuery,
+      );
 
       state = state.copyWith(
         items: refresh ? result.items : [...state.items, ...result.items],
@@ -74,9 +90,53 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     await loadItems(refresh: true);
   }
 
+  Future<void> setSearchQuery(String? query) async {
+    final trimmedQuery = query?.trim();
+    final newQuery = (trimmedQuery?.isEmpty ?? true) ? null : trimmedQuery;
+
+    if (newQuery == state.searchQuery) return;
+
+    state = state.copyWith(
+      searchQuery: newQuery,
+      clearSearch: newQuery == null,
+    );
+    await loadItems(refresh: true);
+  }
+
+  Future<void> setTopicFilter(int? topicId) async {
+    if (topicId == state.selectedTopicId) return;
+
+    state = state.copyWith(
+      selectedTopicId: topicId,
+      clearTopic: topicId == null,
+    );
+    await loadItems(refresh: true);
+  }
+
+  void clearFilters() {
+    state = state.copyWith(
+      clearSearch: true,
+      clearTopic: true,
+    );
+    loadItems(refresh: true);
+  }
+
   Future<ContentItem?> ingestUrl(String url) async {
     try {
       final item = await _apiClient.ingestUrl(url);
+      state = state.copyWith(
+        items: [item, ...state.items],
+      );
+      return item;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  Future<ContentItem?> ingestNote(String title, String text) async {
+    try {
+      final item = await _apiClient.ingestText(title: title, text: text);
       state = state.copyWith(
         items: [item, ...state.items],
       );

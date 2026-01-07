@@ -44,6 +44,7 @@ class ApiClient {
     int page = 1,
     int pageSize = 20,
     int? topicId,
+    String? search,
   }) async {
     final response = await _dio.get(
       '/items',
@@ -51,6 +52,7 @@ class ApiClient {
         'page': page,
         'page_size': pageSize,
         if (topicId != null) 'topic_id': topicId,
+        if (search != null && search.isNotEmpty) 'search': search,
       },
     );
     return PaginatedItems.fromJson(response.data);

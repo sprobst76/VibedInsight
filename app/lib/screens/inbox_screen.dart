@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/content_item.dart';
 import '../providers/items_provider.dart';
 import '../providers/share_intent_provider.dart';
+import '../providers/topics_provider.dart';
+import '../widgets/add_note_dialog.dart';
 import '../widgets/add_url_dialog.dart';
 import '../widgets/item_card.dart';
 
@@ -17,6 +22,9 @@ class InboxScreen extends ConsumerStatefulWidget {
 
 class _InboxScreenState extends ConsumerState<InboxScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -131,7 +139,26 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(itemsProvider.notifier).setSearchQuery(query);
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        ref.read(itemsProvider.notifier).setSearchQuery(null);
+      }
+    });
   }
 
   void _onScroll() {
@@ -166,9 +193,66 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     }
   }
 
+  Future<void> _addNote() async {
+    final noteData = await showDialog<NoteData>(
+      context: context,
+      builder: (context) => const AddNoteDialog(),
+    );
+
+    if (noteData != null) {
+      final item = await ref.read(itemsProvider.notifier).ingestNote(
+            noteData.title,
+            noteData.text,
+          );
+      if (item != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added: ${item.displayTitle}'),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () => context.push('/item/${item.id}'),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('Add URL'),
+              subtitle: const Text('Save a link from the web'),
+              onTap: () {
+                Navigator.pop(context);
+                _addUrl();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.note_add),
+              title: const Text('Add Note'),
+              subtitle: const Text('Write a quick note'),
+              onTap: () {
+                Navigator.pop(context);
+                _addNote();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(itemsProvider);
+    final topicsAsync = ref.watch(topicsProvider);
 
     // Listen for new shared content while app is running
     ref.listen<SharedContent?>(shareIntentProvider, (previous, next) {
@@ -180,24 +264,81 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VibedInsight'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search...',
+                  border: InputBorder.none,
+                ),
+                onChanged: _onSearchChanged,
+              )
+            : const Text('Inbox'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              // TODO: Filter by topic
-            },
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: _toggleSearch,
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(itemsProvider.notifier).refresh(),
-        child: _buildContent(state),
+      body: Column(
+        children: [
+          // Topic filter chips
+          topicsAsync.when(
+            data: (topics) => _buildTopicChips(topics, state.selectedTopicId),
+            loading: () => const SizedBox.shrink(),
+            error: (e, s) => const SizedBox.shrink(),
+          ),
+          // Items list
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => ref.read(itemsProvider.notifier).refresh(),
+              child: _buildContent(state),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addUrl,
+        onPressed: _showAddOptions,
         icon: const Icon(Icons.add),
-        label: const Text('Add URL'),
+        label: const Text('Add'),
+      ),
+    );
+  }
+
+  Widget _buildTopicChips(List<Topic> topics, int? selectedTopicId) {
+    if (topics.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 50,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: const Text('All'),
+              selected: selectedTopicId == null,
+              onSelected: (_) {
+                ref.read(itemsProvider.notifier).setTopicFilter(null);
+              },
+            ),
+          ),
+          ...topics.map((topic) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(topic.name),
+                  selected: selectedTopicId == topic.id,
+                  onSelected: (_) {
+                    ref.read(itemsProvider.notifier).setTopicFilter(
+                          selectedTopicId == topic.id ? null : topic.id,
+                        );
+                  },
+                ),
+              )),
+        ],
       ),
     );
   }
