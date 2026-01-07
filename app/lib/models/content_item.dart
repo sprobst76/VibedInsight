@@ -64,7 +64,7 @@ class ContentItem {
   final String? rawText;
   final String? summary;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? updatedAt;
   final DateTime? processedAt;
   final List<Topic> topics;
 
@@ -78,7 +78,7 @@ class ContentItem {
     this.rawText,
     this.summary,
     required this.createdAt,
-    required this.updatedAt,
+    this.updatedAt,
     this.processedAt,
     this.topics = const [],
   });
@@ -94,7 +94,9 @@ class ContentItem {
       rawText: json['raw_text'] as String?,
       summary: json['summary'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
       processedAt: json['processed_at'] != null
           ? DateTime.parse(json['processed_at'] as String)
           : null,
