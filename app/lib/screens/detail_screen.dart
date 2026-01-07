@@ -230,7 +230,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
       avatar: Icon(icon, size: 16, color: color),
       label: Text(label),
       labelStyle: TextStyle(fontSize: 12, color: color),
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withAlpha((0.1 * 255).round()),
       side: BorderSide.none,
       visualDensity: VisualDensity.compact,
     );
