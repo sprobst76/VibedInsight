@@ -1,6 +1,6 @@
 class ApiConfig {
   // Production URL
-  static const String productionUrl = 'https://insight.lab.halbwahrheit21.de';
+  static const String productionUrl = 'https://insight.lab.halbewahrheit21.de';
 
   // Development URLs
   static const String emulatorUrl = 'http://10.0.2.2:8000'; // Android Emulator
