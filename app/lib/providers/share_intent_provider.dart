@@ -1,11 +1,16 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import '../services/notification_service.dart';
 import 'api_provider.dart';
 import 'items_provider.dart';
+
+/// Tracks if app was launched from share intent
+bool _launchedFromShare = false;
+bool get wasLaunchedFromShare => _launchedFromShare;
 
 class SharedContent {
   final String? text;
@@ -42,7 +47,8 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
     // Handle shared content when app is opened from share
     ReceiveSharingIntent.instance.getInitialMedia().then((value) {
       if (value.isNotEmpty) {
-        _handleSharedFiles(value);
+        _launchedFromShare = true;
+        _handleSharedFiles(value, closeAfter: true);
       }
     });
 
@@ -50,7 +56,7 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
     _subscription = ReceiveSharingIntent.instance.getMediaStream().listen(
       (value) {
         if (value.isNotEmpty) {
-          _handleSharedFiles(value);
+          _handleSharedFiles(value, closeAfter: false);
         }
       },
       onError: (err) {
@@ -59,7 +65,7 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
     );
   }
 
-  void _handleSharedFiles(List<SharedMediaFile> files) {
+  void _handleSharedFiles(List<SharedMediaFile> files, {bool closeAfter = false}) {
     for (final file in files) {
       if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
         final content = SharedContent(
@@ -70,7 +76,7 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
         final url = content.extractUrl();
         if (url != null) {
           // Process immediately with notification
-          _processUrlInBackground(url);
+          _processUrlInBackground(url, closeAfter: closeAfter);
         }
         break;
       }
@@ -79,12 +85,20 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
     ReceiveSharingIntent.instance.reset();
   }
 
-  Future<void> _processUrlInBackground(String url) async {
+  Future<void> _processUrlInBackground(String url, {bool closeAfter = false}) async {
     final notificationService = _ref.read(notificationServiceProvider);
     final apiClient = _ref.read(apiClientProvider);
 
     // Show "processing" notification
     await notificationService.showProcessingStarted(url);
+
+    // Close app immediately if launched from share intent
+    // The processing continues in the background
+    if (closeAfter) {
+      // Small delay to ensure notification is shown
+      await Future.delayed(const Duration(milliseconds: 100));
+      SystemNavigator.pop();
+    }
 
     try {
       // Ingest the URL
