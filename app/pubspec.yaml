@@ -32,6 +32,9 @@ dependencies:
   # URL Launcher
   url_launcher: ^6.3.1
 
+  # Local Notifications
+  flutter_local_notifications: ^18.0.1
+
   # Time formatting
   timeago: ^3.7.0
 

@@ -5,8 +5,14 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize notifications
+  await NotificationService().initialize();
+
   // Initialize timeago localization
   timeago.setLocaleMessages('de', timeago.DeMessages());
 

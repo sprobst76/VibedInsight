@@ -32,108 +32,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     // Load initial items
     Future.microtask(() {
       ref.read(itemsProvider.notifier).loadItems(refresh: true);
-      // Check for initial shared content
-      _handleSharedContent();
+      // Initialize share intent provider (handles URLs via notifications)
+      ref.read(shareIntentProvider);
     });
 
     // Pagination
     _scrollController.addListener(_onScroll);
-  }
-
-  void _handleSharedContent() {
-    final sharedContent = ref.read(shareIntentProvider);
-    if (sharedContent != null && sharedContent.hasUrl) {
-      _showShareConfirmDialog(sharedContent.extractUrl()!);
-      ref.read(shareIntentProvider.notifier).clear();
-    }
-  }
-
-  Future<void> _showShareConfirmDialog(String url) async {
-    final shouldAdd = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add shared URL?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Do you want to add this URL to your knowledge base?'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                url,
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldAdd == true && mounted) {
-      await _ingestSharedUrl(url);
-    }
-  }
-
-  Future<void> _ingestSharedUrl(String url) async {
-    // Show loading indicator
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 16),
-            Text('Adding URL...'),
-          ],
-        ),
-        duration: Duration(seconds: 30),
-      ),
-    );
-
-    final item = await ref.read(itemsProvider.notifier).ingestUrl(url);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-    if (item != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added: ${item.displayTitle}'),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () => context.push('/item/${item.id}'),
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to add URL'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   @override
@@ -253,14 +157,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(itemsProvider);
     final topicsAsync = ref.watch(topicsProvider);
-
-    // Listen for new shared content while app is running
-    ref.listen<SharedContent?>(shareIntentProvider, (previous, next) {
-      if (next != null && next.hasUrl) {
-        _showShareConfirmDialog(next.extractUrl()!);
-        ref.read(shareIntentProvider.notifier).clear();
-      }
-    });
 
     return Scaffold(
       appBar: AppBar(
