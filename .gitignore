@@ -64,3 +64,4 @@ app/*.iml
 # OS
 .DS_Store
 Thumbs.db
+*.apk
