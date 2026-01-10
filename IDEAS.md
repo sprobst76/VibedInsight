@@ -19,3 +19,6 @@
 * Add newsletters to app!?
 * weekly summary topic specific
 * rating of entries to learn what topics are important (perhaps also in the weekly summary
+
+## Realtions
+* Use a model as BERT to analyse the relationship/closeness of two contents
