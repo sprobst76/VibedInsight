@@ -122,42 +122,52 @@ def upgrade() -> None:
     op.create_index("ix_item_relations_target_id", "item_relations", ["target_id"])
 
     # =========================================================================
-    # STEP 5: Update users table
+    # STEP 5: Create users table (fresh install - table doesn't exist)
     # =========================================================================
 
-    # Add new columns
-    op.add_column(
+    op.create_table(
         "users",
-        sa.Column("vault_key_salt", sa.String(length=44), nullable=True),
-    )
-    op.add_column(
-        "users",
+        sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
+        sa.Column("email", sa.String(length=255), nullable=False),
+        sa.Column("password_hash", sa.String(length=255), nullable=False),
+        sa.Column("vault_key_salt", sa.String(length=44), nullable=False),
         sa.Column("recovery_codes_hash", postgresql.ARRAY(sa.String(length=255)), nullable=True),
-    )
-    op.add_column(
-        "users",
         sa.Column("recovery_codes_used", postgresql.ARRAY(sa.Boolean()), nullable=True),
-    )
-    op.add_column(
-        "users",
         sa.Column("daily_submission_count", sa.Integer(), nullable=False, server_default="0"),
-    )
-    op.add_column(
-        "users",
-        sa.Column(
-            "last_submission_reset",
-            sa.Date(),
-            nullable=False,
-            server_default=sa.text("CURRENT_DATE"),
-        ),
-    )
-    op.add_column(
-        "users",
+        sa.Column("last_submission_reset", sa.Date(), nullable=False, server_default=sa.text("CURRENT_DATE")),
         sa.Column("vault_entry_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("last_login", sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
     )
 
-    # Remove old columns
-    op.drop_column("users", "updated_at")
+    op.create_index("ix_users_email", "users", ["email"], unique=True)
+    op.create_index("ix_users_is_active", "users", ["is_active"])
+
+    # =========================================================================
+    # STEP 5b: Create refresh_tokens table
+    # =========================================================================
+
+    op.create_table(
+        "refresh_tokens",
+        sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("token_hash", sa.String(length=255), nullable=False),
+        sa.Column("expires_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("user_agent", sa.Text(), nullable=True),
+        sa.Column("ip_address", sa.String(length=45), nullable=True),
+        sa.Column("is_revoked", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column("revoked_at", sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
+    op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
+    op.create_index("ix_refresh_tokens_token_hash", "refresh_tokens", ["token_hash"], unique=True)
+    op.create_index("ix_refresh_tokens_expires_at", "refresh_tokens", ["expires_at"])
+    op.create_index("ix_refresh_tokens_is_revoked", "refresh_tokens", ["is_revoked"])
 
     # =========================================================================
     # STEP 6: Create user_vault_entries table
@@ -199,22 +209,17 @@ def downgrade() -> None:
     op.drop_index("ix_user_vault_entries_user_id", table_name="user_vault_entries")
     op.drop_table("user_vault_entries")
 
-    # Restore users table
-    op.add_column(
-        "users",
-        sa.Column(
-            "updated_at",
-            sa.DateTime(),
-            nullable=False,
-            server_default=sa.text("CURRENT_TIMESTAMP"),
-        ),
-    )
-    op.drop_column("users", "vault_entry_count")
-    op.drop_column("users", "last_submission_reset")
-    op.drop_column("users", "daily_submission_count")
-    op.drop_column("users", "recovery_codes_used")
-    op.drop_column("users", "recovery_codes_hash")
-    op.drop_column("users", "vault_key_salt")
+    # Drop refresh_tokens table
+    op.drop_index("ix_refresh_tokens_is_revoked", table_name="refresh_tokens")
+    op.drop_index("ix_refresh_tokens_expires_at", table_name="refresh_tokens")
+    op.drop_index("ix_refresh_tokens_token_hash", table_name="refresh_tokens")
+    op.drop_index("ix_refresh_tokens_user_id", table_name="refresh_tokens")
+    op.drop_table("refresh_tokens")
+
+    # Drop users table
+    op.drop_index("ix_users_is_active", table_name="users")
+    op.drop_index("ix_users_email", table_name="users")
+    op.drop_table("users")
 
     # Drop new content tables
     op.drop_index("ix_item_relations_target_id", table_name="item_relations")
