@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_active_user
+from app.dependencies import get_dev_or_current_user
 from app.models.content import Topic
 from app.models.user import User
 from app.schemas import TopicCreate, TopicResponse
@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[TopicResponse])
 async def list_topics(
-    _user: User = Depends(get_current_active_user),
+    _user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List all topics (shared across users)."""
@@ -25,7 +25,7 @@ async def list_topics(
 @router.post("", response_model=TopicResponse)
 async def create_topic(
     topic: TopicCreate,
-    _user: User = Depends(get_current_active_user),
+    _user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new topic (shared across users)."""
@@ -48,7 +48,7 @@ async def create_topic(
 @router.delete("/{topic_id}")
 async def delete_topic(
     topic_id: int,
-    _user: User = Depends(get_current_active_user),
+    _user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a topic (shared across users)."""

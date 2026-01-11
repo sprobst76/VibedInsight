@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_active_user
+from app.dependencies import get_dev_or_current_user
 from app.models.content import ContentItem, ProcessingStatus, WeeklySummary
 from app.models.user import User
 from app.schemas import WeeklySummaryListResponse, WeeklySummaryResponse
@@ -33,7 +33,7 @@ def get_week_bounds(date: datetime | None = None) -> tuple[datetime, datetime]:
 @router.get("", response_model=list[WeeklySummaryListResponse])
 async def list_weekly_summaries(
     limit: int = 10,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List all weekly summaries for the current user, most recent first."""
@@ -61,7 +61,7 @@ async def list_weekly_summaries(
 
 @router.get("/current", response_model=WeeklySummaryResponse)
 async def get_current_week_summary(
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get or create summary for the current week."""
@@ -104,7 +104,7 @@ async def get_current_week_summary(
 @router.get("/{summary_id}", response_model=WeeklySummaryResponse)
 async def get_weekly_summary(
     summary_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific weekly summary."""
@@ -126,7 +126,7 @@ async def get_weekly_summary(
 async def generate_summary(
     summary_id: int,
     background_tasks: BackgroundTasks,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate or regenerate a weekly summary using AI."""
@@ -198,7 +198,7 @@ async def generate_summary(
 
 @router.post("/generate-current", response_model=WeeklySummaryResponse)
 async def generate_current_week_summary(
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create and generate summary for the current week in one call."""
