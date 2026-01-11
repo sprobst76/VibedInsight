@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_active_user
+from app.dependencies import get_dev_or_current_user
 from app.models.content import ContentItem, ItemRelation, Topic
 from app.models.user import User, UserItem
 from app.schemas import (
@@ -68,7 +68,7 @@ async def list_items(
     archived_only: bool = Query(False, description="Only show archived items"),
     sort_by: str = Query("date", pattern="^(date|title|status)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -163,7 +163,7 @@ async def list_items(
 @router.get("/{item_id}", response_model=UserItemResponse)
 async def get_item(
     item_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single user item by ID."""
@@ -186,7 +186,7 @@ async def get_item(
 @router.get("/{item_id}/relations")
 async def get_item_with_relations(
     item_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -253,7 +253,7 @@ async def get_item_with_relations(
 @router.post("/{item_id}/favorite", response_model=UserItemResponse)
 async def toggle_favorite(
     item_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Toggle favorite status for an item."""
@@ -280,7 +280,7 @@ async def toggle_favorite(
 @router.post("/{item_id}/read", response_model=UserItemResponse)
 async def toggle_read(
     item_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Toggle read status for an item."""
@@ -307,7 +307,7 @@ async def toggle_read(
 @router.post("/{item_id}/archive", response_model=UserItemResponse)
 async def toggle_archive(
     item_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Toggle archive status for an item."""
@@ -334,7 +334,7 @@ async def toggle_archive(
 @router.delete("/{item_id}")
 async def delete_item(
     item_id: int,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a user item (removes the user-content link, not the content itself)."""
@@ -362,7 +362,7 @@ async def delete_item(
 @router.post("/bulk/delete")
 async def bulk_delete(
     request: BulkIdsRequest,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete multiple user items."""
@@ -390,7 +390,7 @@ async def bulk_delete(
 @router.post("/bulk/read", response_model=list[UserItemResponse])
 async def bulk_mark_read(
     request: BulkIdsRequest,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark multiple items as read."""
@@ -415,7 +415,7 @@ async def bulk_mark_read(
 @router.post("/bulk/archive", response_model=list[UserItemResponse])
 async def bulk_archive(
     request: BulkIdsRequest,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Archive multiple items."""

@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_active_user
+from app.dependencies import get_dev_or_current_user
 from app.models.content import ContentItem, ContentType, ProcessingStatus, Topic
 from app.models.user import User, UserItem
 from app.schemas import (
@@ -180,7 +180,7 @@ async def schedule_processing(item_id: uuid.UUID, db_url: str):
 @router.post("/url", response_model=IngestContentResponse)
 async def ingest_url(
     request: IngestURLRequest,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -279,7 +279,7 @@ async def ingest_url(
 @router.post("/text", response_model=IngestContentResponse)
 async def ingest_text(
     request: IngestTextRequest,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -349,7 +349,7 @@ async def get_content(
 @router.post("/{content_id}/reprocess", response_model=ContentItemResponse)
 async def reprocess_content(
     content_id: uuid.UUID,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -388,7 +388,7 @@ async def reprocess_content(
 @router.delete("/{content_id}/decrement")
 async def decrement_ref_count(
     content_id: uuid.UUID,
-    user: User = Depends(get_current_active_user),
+    user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
