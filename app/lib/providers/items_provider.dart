@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../models/content_item.dart';
+import '../repositories/items_repository.dart';
 import 'api_provider.dart';
 
 // Items list state
@@ -20,6 +21,9 @@ class ItemsState {
   final SortOrder sortOrder;
   final bool isSelectionMode;
   final Set<int> selectedIds;
+  final bool isOffline;
+  final bool isFromCache;
+  final bool hasPendingActions;
 
   ItemsState({
     this.items = const [],
@@ -36,6 +40,9 @@ class ItemsState {
     this.sortOrder = SortOrder.desc,
     this.isSelectionMode = false,
     this.selectedIds = const {},
+    this.isOffline = false,
+    this.isFromCache = false,
+    this.hasPendingActions = false,
   });
 
   ItemsState copyWith({
@@ -53,6 +60,9 @@ class ItemsState {
     SortOrder? sortOrder,
     bool? isSelectionMode,
     Set<int>? selectedIds,
+    bool? isOffline,
+    bool? isFromCache,
+    bool? hasPendingActions,
     bool clearSearch = false,
     bool clearTopic = false,
   }) {
@@ -71,6 +81,9 @@ class ItemsState {
       sortOrder: sortOrder ?? this.sortOrder,
       isSelectionMode: isSelectionMode ?? this.isSelectionMode,
       selectedIds: selectedIds ?? this.selectedIds,
+      isOffline: isOffline ?? this.isOffline,
+      isFromCache: isFromCache ?? this.isFromCache,
+      hasPendingActions: hasPendingActions ?? this.hasPendingActions,
     );
   }
 
@@ -82,9 +95,29 @@ class ItemsState {
 }
 
 class ItemsNotifier extends StateNotifier<ItemsState> {
+  final ItemsRepository _repository;
   final ApiClient _apiClient;
 
-  ItemsNotifier(this._apiClient) : super(ItemsState());
+  ItemsNotifier(this._repository, this._apiClient) : super(ItemsState()) {
+    // Listen to online status changes
+    _repository.onlineStatus.listen((isOnline) {
+      state = state.copyWith(isOffline: !isOnline);
+      if (isOnline) {
+        // Sync pending actions when back online
+        _syncPendingActions();
+      }
+    });
+  }
+
+  Future<void> _syncPendingActions() async {
+    final result = await _repository.syncPendingActions();
+    if (result.synced > 0) {
+      // Refresh to get latest data after sync
+      await loadItems(refresh: true);
+    }
+    final hasPending = await _repository.hasPendingActions();
+    state = state.copyWith(hasPendingActions: hasPending);
+  }
 
   Future<void> loadItems({bool refresh = false}) async {
     if (state.isLoading) return;
@@ -98,7 +131,7 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     );
 
     try {
-      final result = await _apiClient.getItems(
+      final result = await _repository.getItems(
         page: page,
         topicId: state.selectedTopicId,
         search: state.searchQuery,
@@ -109,11 +142,16 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
         sortOrder: state.sortOrder,
       );
 
+      final hasPending = await _repository.hasPendingActions();
+
       state = state.copyWith(
         items: refresh ? result.items : [...state.items, ...result.items],
         isLoading: false,
         hasMore: page < result.pages,
         currentPage: page,
+        isFromCache: result.isFromCache,
+        isOffline: result.isFromCache,
+        hasPendingActions: hasPending,
       );
     } catch (e) {
       state = state.copyWith(
@@ -197,84 +235,127 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   }
 
   Future<void> toggleFavorite(int id) async {
-    try {
-      final updated = await _apiClient.toggleFavorite(id);
+    final currentItem = state.items.firstWhere((item) => item.id == id);
+    final currentValue = currentItem.isFavorite;
 
-      // Update the item in the list
-      state = state.copyWith(
-        items: state.items.map((item) {
-          return item.id == id ? updated : item;
-        }).toList(),
-      );
+    // Optimistic update
+    state = state.copyWith(
+      items: state.items.map((item) {
+        return item.id == id ? item.copyWith(isFavorite: !currentValue) : item;
+      }).toList(),
+    );
+
+    try {
+      await _repository.toggleFavorite(id, currentValue);
+      final hasPending = await _repository.hasPendingActions();
+      state = state.copyWith(hasPendingActions: hasPending);
 
       // If we're filtering by favorites and the item is now unfavorited, remove it
-      if (state.favoritesOnly && !updated.isFavorite) {
+      if (state.favoritesOnly && currentValue) {
         state = state.copyWith(
           items: state.items.where((item) => item.id != id).toList(),
         );
       }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      // Revert on error
+      state = state.copyWith(
+        items: state.items.map((item) {
+          return item.id == id ? item.copyWith(isFavorite: currentValue) : item;
+        }).toList(),
+        error: e.toString(),
+      );
     }
   }
 
   Future<void> toggleRead(int id) async {
-    try {
-      final updated = await _apiClient.toggleRead(id);
+    final currentItem = state.items.firstWhere((item) => item.id == id);
+    final currentValue = currentItem.isRead;
 
-      // Update the item in the list
-      state = state.copyWith(
-        items: state.items.map((item) {
-          return item.id == id ? updated : item;
-        }).toList(),
-      );
+    // Optimistic update
+    state = state.copyWith(
+      items: state.items.map((item) {
+        return item.id == id ? item.copyWith(isRead: !currentValue) : item;
+      }).toList(),
+    );
+
+    try {
+      await _repository.toggleRead(id, currentValue);
+      final hasPending = await _repository.hasPendingActions();
+      state = state.copyWith(hasPendingActions: hasPending);
 
       // If we're filtering by unread and the item is now read, remove it
-      if (state.unreadOnly && updated.isRead) {
+      if (state.unreadOnly && !currentValue) {
         state = state.copyWith(
           items: state.items.where((item) => item.id != id).toList(),
         );
       }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      // Revert on error
+      state = state.copyWith(
+        items: state.items.map((item) {
+          return item.id == id ? item.copyWith(isRead: currentValue) : item;
+        }).toList(),
+        error: e.toString(),
+      );
     }
   }
 
   Future<void> toggleArchive(int id) async {
-    try {
-      final updated = await _apiClient.toggleArchive(id);
+    final currentItem = state.items.firstWhere((item) => item.id == id);
+    final currentValue = currentItem.isArchived;
 
-      // Update the item in the list
-      state = state.copyWith(
-        items: state.items.map((item) {
-          return item.id == id ? updated : item;
-        }).toList(),
-      );
+    // Optimistic update
+    state = state.copyWith(
+      items: state.items.map((item) {
+        return item.id == id ? item.copyWith(isArchived: !currentValue) : item;
+      }).toList(),
+    );
+
+    try {
+      await _repository.toggleArchive(id, currentValue);
+      final hasPending = await _repository.hasPendingActions();
+      state = state.copyWith(hasPendingActions: hasPending);
 
       // If not viewing archived and item is now archived, remove it from view
-      if (!state.archivedOnly && updated.isArchived) {
+      if (!state.archivedOnly && !currentValue) {
         state = state.copyWith(
           items: state.items.where((item) => item.id != id).toList(),
         );
       }
       // If viewing archived only and item is now unarchived, remove it from view
-      if (state.archivedOnly && !updated.isArchived) {
+      if (state.archivedOnly && currentValue) {
         state = state.copyWith(
           items: state.items.where((item) => item.id != id).toList(),
         );
       }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      // Revert on error
+      state = state.copyWith(
+        items: state.items.map((item) {
+          return item.id == id ? item.copyWith(isArchived: currentValue) : item;
+        }).toList(),
+        error: e.toString(),
+      );
     }
   }
 
   Future<ContentItem?> ingestUrl(String url) async {
     try {
-      final item = await _apiClient.ingestUrl(url);
-      state = state.copyWith(
-        items: [item, ...state.items],
-      );
-      return item;
+      final result = await _repository.ingestUrl(url);
+      final hasPending = await _repository.hasPendingActions();
+
+      if (result.item != null) {
+        state = state.copyWith(
+          items: [result.item!, ...state.items],
+          hasPendingActions: hasPending,
+        );
+        return result.item;
+      } else if (result.isPending) {
+        // Queued for later sync
+        state = state.copyWith(hasPendingActions: true);
+        return null;
+      }
+      return null;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
@@ -283,11 +364,21 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
 
   Future<ContentItem?> ingestNote(String title, String text) async {
     try {
-      final item = await _apiClient.ingestText(title: title, text: text);
-      state = state.copyWith(
-        items: [item, ...state.items],
-      );
-      return item;
+      final result = await _repository.ingestNote(title: title, text: text);
+      final hasPending = await _repository.hasPendingActions();
+
+      if (result.item != null) {
+        state = state.copyWith(
+          items: [result.item!, ...state.items],
+          hasPendingActions: hasPending,
+        );
+        return result.item;
+      } else if (result.isPending) {
+        // Queued for later sync
+        state = state.copyWith(hasPendingActions: true);
+        return null;
+      }
+      return null;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
@@ -295,13 +386,22 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   }
 
   Future<void> deleteItem(int id) async {
+    // Optimistic removal
+    final removedItem = state.items.firstWhere((item) => item.id == id);
+    state = state.copyWith(
+      items: state.items.where((item) => item.id != id).toList(),
+    );
+
     try {
-      await _apiClient.deleteItem(id);
-      state = state.copyWith(
-        items: state.items.where((item) => item.id != id).toList(),
-      );
+      await _repository.deleteItem(id);
+      final hasPending = await _repository.hasPendingActions();
+      state = state.copyWith(hasPendingActions: hasPending);
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      // Revert on error
+      state = state.copyWith(
+        items: [removedItem, ...state.items],
+        error: e.toString(),
+      );
     }
   }
 
@@ -423,8 +523,9 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
 }
 
 final itemsProvider = StateNotifierProvider<ItemsNotifier, ItemsState>((ref) {
+  final repository = ref.watch(itemsRepositoryProvider);
   final apiClient = ref.watch(apiClientProvider);
-  return ItemsNotifier(apiClient);
+  return ItemsNotifier(repository, apiClient);
 });
 
 // Single item provider (with relations)

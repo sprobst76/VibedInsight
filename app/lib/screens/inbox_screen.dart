@@ -83,16 +83,24 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
     if (url != null && url.isNotEmpty) {
       final item = await ref.read(itemsProvider.notifier).ingestUrl(url);
-      if (item != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added: ${item.displayTitle}'),
-            action: SnackBarAction(
-              label: 'View',
-              onPressed: () => context.push('/item/${item.id}'),
+      if (mounted) {
+        if (item != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added: ${item.displayTitle}'),
+              action: SnackBarAction(
+                label: 'View',
+                onPressed: () => context.push('/item/${item.id}'),
+              ),
             ),
-          ),
-        );
+          );
+        } else if (ref.read(itemsProvider).hasPendingActions) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('URL queued - will be added when online'),
+            ),
+          );
+        }
       }
     }
   }
@@ -108,16 +116,24 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             noteData.title,
             noteData.text,
           );
-      if (item != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added: ${item.displayTitle}'),
-            action: SnackBarAction(
-              label: 'View',
-              onPressed: () => context.push('/item/${item.id}'),
+      if (mounted) {
+        if (item != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added: ${item.displayTitle}'),
+              action: SnackBarAction(
+                label: 'View',
+                onPressed: () => context.push('/item/${item.id}'),
+              ),
             ),
-          ),
-        );
+          );
+        } else if (ref.read(itemsProvider).hasPendingActions) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Note queued - will be added when online'),
+            ),
+          );
+        }
       }
     }
   }
@@ -331,6 +347,9 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           : _buildNormalAppBar(),
       body: Column(
         children: [
+          // Offline indicator banner
+          if (state.isOffline || state.isFromCache)
+            _buildOfflineBanner(state),
           // Filter chips (hide in selection mode)
           if (!state.isSelectionMode)
             topicsAsync.when(
@@ -355,6 +374,51 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               label: const Text('Add'),
             ),
     );
+  }
+
+  Widget _buildOfflineBanner(ItemsState state) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: state.hasPendingActions
+          ? Colors.orange.shade100
+          : Colors.grey.shade200,
+      child: Row(
+        children: [
+          Icon(
+            state.hasPendingActions
+                ? Icons.sync_problem
+                : Icons.cloud_off,
+            size: 18,
+            color: state.hasPendingActions
+                ? Colors.orange.shade800
+                : Colors.grey.shade700,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              state.hasPendingActions
+                  ? 'Offline - ${_pendingActionsText(state)}'
+                  : 'Offline - showing cached data',
+              style: TextStyle(
+                fontSize: 13,
+                color: state.hasPendingActions
+                    ? Colors.orange.shade800
+                    : Colors.grey.shade700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => ref.read(itemsProvider.notifier).refresh(),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _pendingActionsText(ItemsState state) {
+    return 'changes will sync when online';
   }
 
   Widget _buildTopicChips(List<Topic> topics, int? selectedTopicId) {
