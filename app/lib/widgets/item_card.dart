@@ -7,20 +7,36 @@ class ItemCard extends StatelessWidget {
   final ContentItem item;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onToggleFavorite;
+  final VoidCallback? onToggleRead;
+  final VoidCallback? onLongPress;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final VoidCallback? onToggleSelection;
 
   const ItemCard({
     super.key,
     required this.item,
     this.onTap,
     this.onDelete,
+    this.onToggleFavorite,
+    this.onToggleRead,
+    this.onLongPress,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onToggleSelection,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: isSelected
+          ? Theme.of(context).colorScheme.primaryContainer.withAlpha(128)
+          : null,
       child: InkWell(
-        onTap: onTap,
+        onTap: isSelectionMode ? onToggleSelection : onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -30,19 +46,65 @@ class ItemCard extends StatelessWidget {
               // Header row
               Row(
                 children: [
+                  // Checkbox in selection mode
+                  if (isSelectionMode) ...[
+                    Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => onToggleSelection?.call(),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   _buildTypeIcon(),
                   const SizedBox(width: 8),
+                  // Unread indicator dot
+                  if (!item.isRead && !isSelectionMode) ...[
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                       item.displayTitle,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
                           ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  _buildStatusIndicator(),
+                  if (!isSelectionMode) ...[
+                    _buildStatusIndicator(),
+                    if (onToggleRead != null) ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: onToggleRead,
+                        child: Icon(
+                          item.isRead ? Icons.mark_email_read : Icons.mark_email_unread,
+                          color: item.isRead ? Colors.grey : Theme.of(context).colorScheme.primary,
+                          size: 22,
+                        ),
+                      ),
+                    ],
+                    if (onToggleFavorite != null) ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: onToggleFavorite,
+                        child: Icon(
+                          item.isFavorite ? Icons.star : Icons.star_border,
+                          color: item.isFavorite ? Colors.amber : Colors.grey,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
               ),
 

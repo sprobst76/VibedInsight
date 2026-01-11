@@ -1,7 +1,7 @@
 name: vibedinsight
 description: "Personal knowledge platform - collect, analyze, summarize"
 publish_to: 'none'
-version: 0.2.2+4
+version: 0.3.6+11
 
 environment:
   sdk: ^3.10.4
@@ -37,6 +37,7 @@ dependencies:
 
   # Time formatting
   timeago: ^3.7.0
+  intl: ^0.19.0
 
   # Routing
   go_router: ^15.1.2

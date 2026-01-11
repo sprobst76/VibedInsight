@@ -153,39 +153,191 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     );
   }
 
+  AppBar _buildNormalAppBar() {
+    return AppBar(
+      title: _isSearching
+          ? TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search...',
+                border: InputBorder.none,
+              ),
+              onChanged: _onSearchChanged,
+            )
+          : const Text('Inbox'),
+      actions: [
+        IconButton(
+          icon: Icon(_isSearching ? Icons.close : Icons.search),
+          onPressed: _toggleSearch,
+        ),
+        _buildSortButton(),
+        IconButton(
+          icon: const Icon(Icons.auto_awesome),
+          tooltip: 'Weekly Summary',
+          onPressed: () => context.push('/weekly'),
+        ),
+      ],
+    );
+  }
+
+  AppBar _buildSelectionAppBar(ItemsState state) {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () => ref.read(itemsProvider.notifier).exitSelectionMode(),
+      ),
+      title: Text('${state.selectedCount} selected'),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.select_all),
+          tooltip: 'Select All',
+          onPressed: () => ref.read(itemsProvider.notifier).selectAll(),
+        ),
+        IconButton(
+          icon: const Icon(Icons.mark_email_read),
+          tooltip: 'Mark as Read',
+          onPressed: state.selectedCount > 0
+              ? () => _bulkMarkRead()
+              : null,
+        ),
+        if (!state.archivedOnly)
+          IconButton(
+            icon: const Icon(Icons.archive_outlined),
+            tooltip: 'Archive',
+            onPressed: state.selectedCount > 0
+                ? () => _bulkArchive()
+                : null,
+          ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Delete',
+          onPressed: state.selectedCount > 0
+              ? () => _showBulkDeleteConfirmation()
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _bulkMarkRead() async {
+    await ref.read(itemsProvider.notifier).bulkMarkRead();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Items marked as read')),
+      );
+    }
+  }
+
+  Future<void> _bulkArchive() async {
+    final count = ref.read(itemsProvider).selectedCount;
+    await ref.read(itemsProvider.notifier).bulkArchive();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$count item${count > 1 ? 's' : ''} archived')),
+      );
+    }
+  }
+
+  Future<void> _showBulkDeleteConfirmation() async {
+    final state = ref.read(itemsProvider);
+    final count = state.selectedCount;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Items'),
+        content: Text('Are you sure you want to delete $count item${count > 1 ? 's' : ''}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(itemsProvider.notifier).bulkDelete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$count item${count > 1 ? 's' : ''} deleted')),
+        );
+      }
+    }
+  }
+
+  Widget _buildSortButton() {
+    final state = ref.watch(itemsProvider);
+    return PopupMenuButton<SortField>(
+      icon: const Icon(Icons.sort),
+      tooltip: 'Sort',
+      onSelected: (field) {
+        // If selecting the same field, toggle order; otherwise, use desc
+        if (field == state.sortBy) {
+          ref.read(itemsProvider.notifier).toggleSortOrder();
+        } else {
+          ref.read(itemsProvider.notifier).setSort(field, SortOrder.desc);
+        }
+      },
+      itemBuilder: (context) => SortField.values.map((field) {
+        final isSelected = field == state.sortBy;
+        return PopupMenuItem<SortField>(
+          value: field,
+          child: Row(
+            children: [
+              if (isSelected)
+                Icon(
+                  state.sortOrder == SortOrder.desc
+                      ? Icons.arrow_downward
+                      : Icons.arrow_upward,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                )
+              else
+                const SizedBox(width: 18),
+              const SizedBox(width: 8),
+              Text(
+                field.displayName,
+                style: isSelected
+                    ? TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(itemsProvider);
     final topicsAsync = ref.watch(topicsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Search...',
-                  border: InputBorder.none,
-                ),
-                onChanged: _onSearchChanged,
-              )
-            : const Text('Inbox'),
-        actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: _toggleSearch,
-          ),
-        ],
-      ),
+      appBar: state.isSelectionMode
+          ? _buildSelectionAppBar(state)
+          : _buildNormalAppBar(),
       body: Column(
         children: [
-          // Topic filter chips
-          topicsAsync.when(
-            data: (topics) => _buildTopicChips(topics, state.selectedTopicId),
-            loading: () => const SizedBox.shrink(),
-            error: (e, s) => const SizedBox.shrink(),
-          ),
+          // Filter chips (hide in selection mode)
+          if (!state.isSelectionMode)
+            topicsAsync.when(
+              data: (topics) => _buildTopicChips(topics, state.selectedTopicId),
+              loading: () => _buildTopicChips([], state.selectedTopicId),
+              error: (e, s) => _buildTopicChips([], state.selectedTopicId),
+            ),
           // Items list
           Expanded(
             child: RefreshIndicator(
@@ -195,16 +347,18 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddOptions,
-        icon: const Icon(Icons.add),
-        label: const Text('Add'),
-      ),
+      floatingActionButton: state.isSelectionMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _showAddOptions,
+              icon: const Icon(Icons.add),
+              label: const Text('Add'),
+            ),
     );
   }
 
   Widget _buildTopicChips(List<Topic> topics, int? selectedTopicId) {
-    if (topics.isEmpty) return const SizedBox.shrink();
+    final state = ref.watch(itemsProvider);
 
     return SizedBox(
       height: 50,
@@ -216,9 +370,57 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               label: const Text('All'),
-              selected: selectedTopicId == null,
+              selected: selectedTopicId == null && !state.favoritesOnly && !state.unreadOnly && !state.archivedOnly,
               onSelected: (_) {
                 ref.read(itemsProvider.notifier).setTopicFilter(null);
+                ref.read(itemsProvider.notifier).setFavoritesFilter(false);
+                ref.read(itemsProvider.notifier).setUnreadFilter(false);
+                ref.read(itemsProvider.notifier).setArchivedFilter(false);
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(
+                state.favoritesOnly ? Icons.star : Icons.star_border,
+                size: 18,
+                color: state.favoritesOnly ? Colors.amber : null,
+              ),
+              label: const Text('Favorites'),
+              selected: state.favoritesOnly,
+              onSelected: (selected) {
+                ref.read(itemsProvider.notifier).setFavoritesFilter(selected);
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(
+                state.unreadOnly ? Icons.mark_email_unread : Icons.mark_email_read,
+                size: 18,
+                color: state.unreadOnly ? Theme.of(context).colorScheme.primary : null,
+              ),
+              label: const Text('Unread'),
+              selected: state.unreadOnly,
+              onSelected: (selected) {
+                ref.read(itemsProvider.notifier).setUnreadFilter(selected);
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              avatar: Icon(
+                state.archivedOnly ? Icons.archive : Icons.archive_outlined,
+                size: 18,
+                color: state.archivedOnly ? Theme.of(context).colorScheme.primary : null,
+              ),
+              label: const Text('Archived'),
+              selected: state.archivedOnly,
+              onSelected: (selected) {
+                ref.read(itemsProvider.notifier).setArchivedFilter(selected);
               },
             ),
           ),
@@ -305,11 +507,49 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         }
 
         final item = state.items[index];
+        final itemCard = ItemCard(
+          item: item,
+          onTap: () => context.push('/item/${item.id}'),
+          onToggleFavorite: () =>
+              ref.read(itemsProvider.notifier).toggleFavorite(item.id),
+          onToggleRead: () =>
+              ref.read(itemsProvider.notifier).toggleRead(item.id),
+          onLongPress: () {
+            if (!state.isSelectionMode) {
+              ref.read(itemsProvider.notifier).enterSelectionMode();
+              ref.read(itemsProvider.notifier).toggleSelection(item.id);
+            }
+          },
+          isSelectionMode: state.isSelectionMode,
+          isSelected: state.isSelected(item.id),
+          onToggleSelection: () =>
+              ref.read(itemsProvider.notifier).toggleSelection(item.id),
+        );
+
+        // Disable swipe actions in selection mode
+        if (state.isSelectionMode) {
+          return itemCard;
+        }
+
         return Slidable(
           key: ValueKey(item.id),
           endActionPane: ActionPane(
             motion: const ScrollMotion(),
             children: [
+              SlidableAction(
+                onPressed: (_) {
+                  ref.read(itemsProvider.notifier).toggleArchive(item.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(item.isArchived ? 'Item unarchived' : 'Item archived'),
+                    ),
+                  );
+                },
+                backgroundColor: item.isArchived ? Colors.green : Colors.orange,
+                foregroundColor: Colors.white,
+                icon: item.isArchived ? Icons.unarchive : Icons.archive,
+                label: item.isArchived ? 'Unarchive' : 'Archive',
+              ),
               SlidableAction(
                 onPressed: (_) {
                   ref.read(itemsProvider.notifier).deleteItem(item.id);
@@ -321,10 +561,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               ),
             ],
           ),
-          child: ItemCard(
-            item: item,
-            onTap: () => context.push('/item/${item.id}'),
-          ),
+          child: itemCard,
         );
       },
     );

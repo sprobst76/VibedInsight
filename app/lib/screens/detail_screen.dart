@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/content_item.dart';
 import '../providers/api_provider.dart';
 import '../providers/items_provider.dart';
+import '../widgets/edit_item_dialog.dart';
 
 class DetailScreen extends ConsumerStatefulWidget {
   final int itemId;
@@ -48,6 +49,68 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
     ref.invalidate(itemDetailProvider(widget.itemId));
   }
 
+  Future<void> _toggleFavorite(ContentItem item) async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final updated = await apiClient.toggleFavorite(item.id);
+      ref.read(itemsProvider.notifier).updateItem(updated);
+      ref.invalidate(itemDetailProvider(widget.itemId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleRead(ContentItem item) async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final updated = await apiClient.toggleRead(item.id);
+      ref.read(itemsProvider.notifier).updateItem(updated);
+      ref.invalidate(itemDetailProvider(widget.itemId));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _editItem(ContentItem item) async {
+    final result = await showDialog<EditItemResult>(
+      context: context,
+      builder: (context) => EditItemDialog(item: item),
+    );
+
+    if (result != null && mounted) {
+      try {
+        final apiClient = ref.read(apiClientProvider);
+        final updated = await apiClient.updateItem(
+          item.id,
+          title: result.title,
+          summary: result.summary,
+        );
+        ref.read(itemsProvider.notifier).updateItem(updated);
+        ref.invalidate(itemDetailProvider(widget.itemId));
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Item updated')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final itemAsync = ref.watch(itemDetailProvider(widget.itemId));
@@ -70,6 +133,21 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
       appBar: AppBar(
         title: Text(item.displayTitle, maxLines: 1),
         actions: [
+          IconButton(
+            icon: Icon(
+              item.isRead ? Icons.mark_email_read : Icons.mark_email_unread,
+              color: item.isRead ? null : Theme.of(context).colorScheme.primary,
+            ),
+            tooltip: item.isRead ? 'Mark as unread' : 'Mark as read',
+            onPressed: () => _toggleRead(item),
+          ),
+          IconButton(
+            icon: Icon(
+              item.isFavorite ? Icons.star : Icons.star_border,
+              color: item.isFavorite ? Colors.amber : null,
+            ),
+            onPressed: () => _toggleFavorite(item),
+          ),
           if (item.url != null)
             IconButton(
               icon: const Icon(Icons.open_in_browser),
@@ -77,6 +155,16 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
             ),
           PopupMenuButton(
             itemBuilder: (context) => [
+              PopupMenuItem(
+                onTap: () => _editItem(item),
+                child: const Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 onTap: () => _reprocess(item),
                 child: const Row(

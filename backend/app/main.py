@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import ingest, items, topics
+from app.routers import auth, ingest, items, topics, user_items, vault, weekly
 
 
 @asynccontextmanager
@@ -33,9 +33,15 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(items.router, prefix="/items", tags=["Items"])
+app.include_router(auth.router)  # Auth router has its own prefix
+app.include_router(vault.router, prefix="/vault", tags=["Vault"])
+# User items router at /items (for Flutter frontend compatibility)
+app.include_router(user_items.router, prefix="/items", tags=["Items"])
+# Content items router at /content (anonymous content operations)
+app.include_router(items.router, prefix="/content", tags=["Content"])
 app.include_router(ingest.router, prefix="/ingest", tags=["Ingest"])
 app.include_router(topics.router, prefix="/topics", tags=["Topics"])
+app.include_router(weekly.router, prefix="/weekly", tags=["Weekly Summary"])
 
 
 @app.get("/health")

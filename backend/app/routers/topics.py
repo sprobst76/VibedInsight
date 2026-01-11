@@ -3,23 +3,32 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies import get_current_active_user
 from app.models.content import Topic
+from app.models.user import User
 from app.schemas import TopicCreate, TopicResponse
 
 router = APIRouter()
 
 
 @router.get("", response_model=list[TopicResponse])
-async def list_topics(db: AsyncSession = Depends(get_db)):
-    """List all topics."""
+async def list_topics(
+    _user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all topics (shared across users)."""
     query = select(Topic).order_by(Topic.name)
     result = await db.execute(query)
     return result.scalars().all()
 
 
 @router.post("", response_model=TopicResponse)
-async def create_topic(topic: TopicCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new topic."""
+async def create_topic(
+    topic: TopicCreate,
+    _user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new topic (shared across users)."""
     # Check if topic already exists
     query = select(Topic).where(Topic.name == topic.name)
     result = await db.execute(query)
@@ -37,8 +46,12 @@ async def create_topic(topic: TopicCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{topic_id}")
-async def delete_topic(topic_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete a topic."""
+async def delete_topic(
+    topic_id: int,
+    _user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a topic (shared across users)."""
     query = select(Topic).where(Topic.id == topic_id)
     result = await db.execute(query)
     topic = result.scalar_one_or_none()

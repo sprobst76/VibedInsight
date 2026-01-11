@@ -45,6 +45,11 @@ class ApiClient {
     int pageSize = 20,
     int? topicId,
     String? search,
+    bool favoritesOnly = false,
+    bool unreadOnly = false,
+    bool archivedOnly = false,
+    SortField sortBy = SortField.date,
+    SortOrder sortOrder = SortOrder.desc,
   }) async {
     final response = await _dio.get(
       '/items',
@@ -53,6 +58,11 @@ class ApiClient {
         'page_size': pageSize,
         if (topicId != null) 'topic_id': topicId,
         if (search != null && search.isNotEmpty) 'search': search,
+        if (favoritesOnly) 'favorites_only': true,
+        if (unreadOnly) 'unread_only': true,
+        if (archivedOnly) 'archived_only': true,
+        'sort_by': sortBy.name,
+        'sort_order': sortOrder.name,
       },
     );
     return PaginatedItems.fromJson(response.data);
@@ -68,8 +78,67 @@ class ApiClient {
     return ContentItemWithRelations.fromJson(response.data);
   }
 
+  Future<ContentItem> updateItem(
+    int id, {
+    String? title,
+    String? summary,
+    List<int>? topicIds,
+  }) async {
+    final data = <String, dynamic>{};
+    if (title != null) data['title'] = title;
+    if (summary != null) data['summary'] = summary;
+    if (topicIds != null) data['topic_ids'] = topicIds;
+
+    final response = await _dio.patch('/items/$id', data: data);
+    return ContentItem.fromJson(response.data);
+  }
+
+  Future<ContentItem> toggleFavorite(int id) async {
+    final response = await _dio.post('/items/$id/favorite');
+    return ContentItem.fromJson(response.data);
+  }
+
+  Future<ContentItem> toggleRead(int id) async {
+    final response = await _dio.post('/items/$id/read');
+    return ContentItem.fromJson(response.data);
+  }
+
+  Future<ContentItem> toggleArchive(int id) async {
+    final response = await _dio.post('/items/$id/archive');
+    return ContentItem.fromJson(response.data);
+  }
+
   Future<void> deleteItem(int id) async {
     await _dio.delete('/items/$id');
+  }
+
+  // Bulk Operations
+  Future<List<int>> bulkDeleteItems(List<int> ids) async {
+    final response = await _dio.post(
+      '/items/bulk/delete',
+      data: {'ids': ids},
+    );
+    return (response.data['deleted_ids'] as List).cast<int>();
+  }
+
+  Future<List<ContentItem>> bulkMarkRead(List<int> ids) async {
+    final response = await _dio.post(
+      '/items/bulk/read',
+      data: {'ids': ids},
+    );
+    return (response.data as List)
+        .map((e) => ContentItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ContentItem>> bulkArchive(List<int> ids) async {
+    final response = await _dio.post(
+      '/items/bulk/archive',
+      data: {'ids': ids},
+    );
+    return (response.data as List)
+        .map((e) => ContentItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // Ingest
@@ -120,5 +189,36 @@ class ApiClient {
 
   Future<void> deleteTopic(int id) async {
     await _dio.delete('/topics/$id');
+  }
+
+  // Weekly Summaries
+  Future<List<WeeklySummaryListItem>> getWeeklySummaries({int limit = 10}) async {
+    final response = await _dio.get(
+      '/weekly',
+      queryParameters: {'limit': limit},
+    );
+    return (response.data as List)
+        .map((e) => WeeklySummaryListItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<WeeklySummary> getCurrentWeekSummary() async {
+    final response = await _dio.get('/weekly/current');
+    return WeeklySummary.fromJson(response.data);
+  }
+
+  Future<WeeklySummary> getWeeklySummary(int id) async {
+    final response = await _dio.get('/weekly/$id');
+    return WeeklySummary.fromJson(response.data);
+  }
+
+  Future<WeeklySummary> generateWeeklySummary(int id) async {
+    final response = await _dio.post('/weekly/$id/generate');
+    return WeeklySummary.fromJson(response.data);
+  }
+
+  Future<WeeklySummary> generateCurrentWeekSummary() async {
+    final response = await _dio.post('/weekly/generate-current');
+    return WeeklySummary.fromJson(response.data);
   }
 }

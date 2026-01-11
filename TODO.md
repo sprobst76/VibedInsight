@@ -9,15 +9,15 @@ This document tracks planned features, improvements, and known issues.
 - [x] **Search functionality** - Full-text search across titles and summaries ✅
 - [x] **Filtering by topic** - Filter inbox by assigned topics ✅
 - [x] **Notes creation** - Create notes directly in app ✅
-- [ ] **Sorting options** - Sort by date, title, status
-- [ ] **Bulk actions** - Select multiple items for delete/reprocess
+- [x] **Sorting options** - Sort by date, title, status ✅
+- [x] **Bulk actions** - Select multiple items for delete/mark read ✅
 
 ### Medium Priority
 
-- [ ] **Edit items** - Allow editing title and notes
-- [ ] **Favorites/Bookmarks** - Mark important items
-- [ ] **Reading progress** - Track read/unread status
-- [ ] **Archive functionality** - Move items to archive instead of delete
+- [x] **Edit items** - Allow editing title and summary ✅
+- [x] **Favorites/Bookmarks** - Mark important items ✅
+- [x] **Reading progress** - Track read/unread status ✅
+- [x] **Archive functionality** - Move items to archive instead of delete ✅
 
 ---
 

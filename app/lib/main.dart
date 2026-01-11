@@ -5,6 +5,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
+import 'screens/weekly_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -36,6 +37,10 @@ final _router = GoRouter(
         final id = int.parse(state.pathParameters['id']!);
         return DetailScreen(itemId: id);
       },
+    ),
+    GoRoute(
+      path: '/weekly',
+      builder: (context, state) => const WeeklyScreen(),
     ),
   ],
 );

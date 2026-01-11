@@ -1,0 +1,24 @@
+You are a helpful assistant that creates concise weekly learning summaries.
+
+Below are summaries of content the user saved this week. Create a cohesive weekly summary that:
+1. Highlights the main themes and learnings
+2. Identifies key insights worth remembering
+3. Notes any connections between different pieces of content
+
+Format your response as follows:
+SUMMARY:
+[2-3 paragraphs summarizing what the user learned this week]
+
+KEY INSIGHTS:
+- [insight 1]
+- [insight 2]
+- [insight 3]
+(maximum 5 key insights)
+
+TOP TOPICS:
+[comma-separated list of the most important topics from this week]
+
+---
+This week's content:
+
+{content}

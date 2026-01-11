@@ -48,7 +48,7 @@ async def generate_summary(text: str, language: str = "auto") -> str:
         )
         logger.info("Ollama summary response received")
         return response["message"]["content"]
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
         raise
     except Exception as e:
@@ -64,7 +64,7 @@ async def extract_topics(text: str, existing_topics: list[str] | None = None) ->
     existing = ", ".join(existing_topics) if existing_topics else "none"
     prompt = prompt_template.format(text=text[:4000], existing_topics=existing)
 
-    logger.info(f"Calling Ollama for topic extraction")
+    logger.info("Calling Ollama for topic extraction")
 
     # Create client with custom timeout
     client = ollama.AsyncClient(
@@ -88,9 +88,102 @@ async def extract_topics(text: str, existing_topics: list[str] | None = None) ->
 
         # Clean up and deduplicate
         return list(set(topics))[:10]  # Max 10 topics
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
         raise
     except Exception as e:
         logger.error(f"Ollama request failed: {e}")
         raise
+
+
+async def generate_weekly_summary(items_content: list[dict]) -> dict:
+    """
+    Generate a weekly summary from a list of content items.
+
+    Args:
+        items_content: List of dicts with 'title' and 'summary' keys
+
+    Returns:
+        Dict with 'summary', 'key_insights', and 'top_topics' keys
+    """
+    # Build content string from items
+    content_parts = []
+    for item in items_content[:20]:  # Limit to 20 items
+        title = item.get("title", "Untitled")
+        summary = item.get("summary", "No summary")
+        content_parts.append(f"### {title}\n{summary}\n")
+
+    content = "\n".join(content_parts)
+
+    prompt_template = load_prompt("weekly_summary")
+    prompt = prompt_template.format(content=content[:12000])  # Limit input length
+
+    logger.info("Generating weekly summary with Ollama")
+
+    client = ollama.AsyncClient(
+        host=settings.ollama_base_url,
+        timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
+    )
+
+    try:
+        response = await asyncio.wait_for(
+            client.chat(
+                model=settings.ollama_model,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=OLLAMA_TIMEOUT,
+        )
+        logger.info("Weekly summary response received")
+
+        # Parse the response
+        content = response["message"]["content"]
+        return _parse_weekly_summary_response(content)
+
+    except TimeoutError:
+        logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
+        raise
+    except Exception as e:
+        logger.error(f"Ollama request failed: {e}")
+        raise
+
+
+def _parse_weekly_summary_response(content: str) -> dict:
+    """Parse the structured response from the weekly summary prompt."""
+    result = {
+        "summary": "",
+        "key_insights": [],
+        "top_topics": [],
+    }
+
+    current_section = None
+    summary_lines = []
+
+    for line in content.split("\n"):
+        line_stripped = line.strip()
+
+        if line_stripped.startswith("SUMMARY:"):
+            current_section = "summary"
+            continue
+        elif line_stripped.startswith("KEY INSIGHTS:"):
+            current_section = "insights"
+            continue
+        elif line_stripped.startswith("TOP TOPICS:"):
+            current_section = "topics"
+            continue
+
+        if current_section == "summary" and line_stripped:
+            summary_lines.append(line_stripped)
+        elif current_section == "insights" and line_stripped.startswith("-"):
+            insight = line_stripped[1:].strip()
+            if insight:
+                result["key_insights"].append(insight)
+        elif current_section == "topics" and line_stripped:
+            # Parse comma-separated topics
+            topics = [t.strip() for t in line_stripped.split(",") if t.strip()]
+            result["top_topics"].extend(topics)
+
+    result["summary"] = "\n\n".join(summary_lines)
+    result["top_topics"] = result["top_topics"][:10]  # Limit to 10
+    result["key_insights"] = result["key_insights"][:5]  # Limit to 5
+
+    return result
