@@ -1,6 +1,69 @@
-# VibedInsight - Test Checklist
+# VibedInsight - Testing Guide
 
-## Ausstehende Tests
+## Automated Tests
+
+### Test Structure
+
+```
+app/
+├── test/                          # Unit and Widget tests
+│   ├── fixtures/
+│   │   └── test_fixtures.dart     # Sample test data
+│   ├── helpers/
+│   │   └── test_helpers.dart      # Testing utilities
+│   ├── mocks/
+│   │   └── mock_api_client.dart   # Mock implementations
+│   ├── unit/
+│   │   ├── models/
+│   │   │   └── content_item_test.dart
+│   │   └── providers/
+│   │       └── items_state_test.dart
+│   ├── widget/
+│   │   └── item_card_test.dart
+│   └── widget_test.dart
+└── integration_test/
+    └── app_test.dart              # Full app integration tests
+```
+
+### Running Tests
+
+```bash
+cd app
+
+# All tests
+flutter test
+
+# Unit tests only
+flutter test test/unit/
+
+# Widget tests only
+flutter test test/widget/
+
+# Integration tests (requires device/emulator)
+flutter test integration_test/
+
+# With coverage
+flutter test --coverage
+```
+
+### Test Summary
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| Model Tests | 23 | JSON parsing, enums, computed properties |
+| Provider Tests | 28 | ItemsState logic, filters, selection |
+| Widget Tests | 19 | ItemCard rendering, interactions |
+| **Total** | **70** | All passing |
+
+### Writing New Tests
+
+See `test/fixtures/test_fixtures.dart` for sample data and `test/helpers/test_helpers.dart` for utilities.
+
+---
+
+## Manual Test Checklist
+
+### Ausstehende Tests
 
 ### v0.2.2 - Share Intent (Auto-Close)
 

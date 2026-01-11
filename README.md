@@ -156,7 +156,7 @@ flutter run
 
 ## License
 
-This project is for personal use. License TBD.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
