@@ -7,6 +7,7 @@ import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/weekly_screen.dart';
 import 'services/notification_service.dart';
+import 'providers/share_intent_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,11 +46,15 @@ final _router = GoRouter(
   ],
 );
 
-class VibedInsightApp extends StatelessWidget {
+class VibedInsightApp extends ConsumerWidget {
   const VibedInsightApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Initialize share intent provider immediately on app start
+    // This ensures we catch share intents even before any screen loads
+    ref.read(shareIntentProvider);
+
     return MaterialApp.router(
       title: 'VibedInsight',
       debugShowCheckedModeBanner: false,
