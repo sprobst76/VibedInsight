@@ -60,7 +60,7 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
         }
       },
       onError: (err) {
-        // Handle errors
+        // Handle errors silently
       },
     );
   }
@@ -68,14 +68,13 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
   void _handleSharedFiles(List<SharedMediaFile> files, {bool closeAfter = false}) {
     for (final file in files) {
       if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
-        final content = SharedContent(
-          text: file.message,
-          url: file.path.startsWith('http') ? file.path : null,
-        );
-
+        // Try to find URL in either path or message
+        // Chrome shares URL in path, other apps might use message
+        final combinedText = '${file.path ?? ''} ${file.message ?? ''}';
+        final content = SharedContent(text: combinedText);
         final url = content.extractUrl();
+
         if (url != null) {
-          // Process immediately with notification
           _processUrlInBackground(url, closeAfter: closeAfter);
         }
         break;
