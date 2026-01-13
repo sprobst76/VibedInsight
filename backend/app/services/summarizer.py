@@ -23,6 +23,69 @@ def load_prompt(name: str) -> str:
     raise FileNotFoundError(f"Prompt template '{name}' not found")
 
 
+def _parse_topics_response(content: str) -> list[str]:
+    """
+    Parse LLM response to extract topics.
+
+    Handles various formats:
+    - Comma-separated: "topic1, topic2, topic3"
+    - Newline-separated: "topic1\ntopic2\ntopic3"
+    - With prefix: "Here are the topics:\ntopic1, topic2"
+    - Numbered lists: "1. topic1\n2. topic2"
+    - Bullet lists: "- topic1\n- topic2"
+    """
+    # Remove common prefixes/preambles
+    lines = content.strip().split("\n")
+
+    # Skip lines that look like preambles (contain "topic" or ":" or are empty)
+    filtered_lines = []
+    skip_preamble = True
+    for line in lines:
+        line_lower = line.lower().strip()
+        # Skip empty lines and preamble lines
+        if not line_lower:
+            continue
+        if skip_preamble and ("topic" in line_lower and ("here" in line_lower or ":" in line_lower)):
+            continue
+        if skip_preamble and line_lower.endswith(":"):
+            continue
+        skip_preamble = False
+        filtered_lines.append(line.strip())
+
+    # Join remaining lines and try to parse
+    remaining = "\n".join(filtered_lines)
+
+    topics = []
+
+    # Try comma-separated first (most common expected format)
+    if "," in remaining and remaining.count(",") >= 2:
+        topics = [t.strip() for t in remaining.split(",") if t.strip()]
+    else:
+        # Try newline-separated
+        for line in filtered_lines:
+            # Remove numbering (1., 2., etc.) and bullets (-, *)
+            cleaned = line.strip()
+            if cleaned and cleaned[0].isdigit():
+                # Remove "1. " or "1) " prefix
+                cleaned = cleaned.lstrip("0123456789").lstrip(".)")
+            cleaned = cleaned.lstrip("-*•").strip()
+            if cleaned:
+                topics.append(cleaned)
+
+    # Clean up topics
+    result = []
+    for topic in topics:
+        # Lowercase and truncate to 100 chars (DB limit)
+        topic = topic.lower().strip()
+        # Remove quotes if present
+        topic = topic.strip("\"'")
+        # Skip if too short or too long after truncation
+        if len(topic) >= 2:
+            result.append(topic[:100])
+
+    return result
+
+
 async def generate_summary(text: str, language: str = "auto") -> str:
     """
     Generate a summary of the given text using Ollama.
@@ -82,9 +145,9 @@ async def extract_topics(text: str, existing_topics: list[str] | None = None) ->
         )
         logger.info("Ollama topics response received")
 
-        # Parse response - expect comma-separated topics
+        # Parse response - handle various LLM output formats
         content = response["message"]["content"]
-        topics = [t.strip().lower() for t in content.split(",") if t.strip()]
+        topics = _parse_topics_response(content)
 
         # Clean up and deduplicate
         return list(set(topics))[:10]  # Max 10 topics
