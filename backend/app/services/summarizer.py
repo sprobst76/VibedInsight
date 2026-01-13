@@ -74,14 +74,35 @@ def _parse_topics_response(content: str) -> list[str]:
 
     # Clean up topics
     result = []
+    # Words that indicate this is preamble, not a topic
+    preamble_words = {"here", "are", "relevant", "extracted", "following", "text"}
+
     for topic in topics:
         # Lowercase and truncate to 100 chars (DB limit)
         topic = topic.lower().strip()
         # Remove quotes if present
         topic = topic.strip("\"'")
-        # Skip if too short or too long after truncation
-        if len(topic) >= 2:
-            result.append(topic[:100])
+        # Remove newlines within topic
+        topic = topic.replace("\n", " ").strip()
+
+        # Skip if too short
+        if len(topic) < 2:
+            continue
+
+        # Skip if topic looks like preamble
+        if "topic" in topic or "extract" in topic:
+            continue
+
+        # Skip single-word preamble fragments
+        words = topic.split()
+        if len(words) == 1 and words[0] in preamble_words:
+            continue
+
+        # Skip if starts with preamble phrase
+        if topic.startswith("here are") or topic.startswith("the following"):
+            continue
+
+        result.append(topic[:100])
 
     return result
 
