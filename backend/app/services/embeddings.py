@@ -53,7 +53,10 @@ async def generate_embedding(text: str) -> list[float] | None:
         logger.info("Embedding generated successfully")
 
         # Response contains 'embeddings' list with one vector
-        if response and "embeddings" in response and response["embeddings"]:
+        # Handle both dict-style and object-style responses
+        if hasattr(response, "embeddings") and response.embeddings:
+            return response.embeddings[0]
+        elif isinstance(response, dict) and response.get("embeddings"):
             return response["embeddings"][0]
 
         logger.error(f"Unexpected embedding response format: {response}")
@@ -110,9 +113,10 @@ async def check_embedding_model_available() -> bool:
     )
 
     try:
-        # List available models
-        models = await client.list()
-        available = [m["name"] for m in models.get("models", [])]
+        # List available models (ollama library returns objects, not dicts)
+        response = await client.list()
+        # Access .models attribute and .model on each Model object
+        available = [m.model for m in response.models]
 
         # Check if embedding model is available (with or without :latest tag)
         model_name = settings.ollama_embedding_model
