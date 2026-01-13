@@ -24,7 +24,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_dev_or_current_user
-from app.models.content import ContentItem, ContentType, ProcessingStatus, Topic
+from app.models.content import ContentItem, ContentType, ItemRelation, ProcessingStatus, RelationType, Topic
 from app.models.user import User, UserItem
 from app.schemas import (
     ContentItemResponse,
@@ -66,6 +66,63 @@ def hash_url(url: str) -> str:
     """Generate SHA256 hash of normalized URL."""
     normalized = normalize_url(url)
     return hashlib.sha256(normalized.encode()).hexdigest()
+
+
+async def _calculate_relations(item: ContentItem, db: AsyncSession):
+    """Calculate relations to other items based on shared topics."""
+    if not item.topics:
+        return
+
+    item_topic_ids = {t.id for t in item.topics}
+    if not item_topic_ids:
+        return
+
+    # Find other items that share at least 2 topics
+    from sqlalchemy import and_, func
+    from app.models.content import content_topics
+
+    # Query for items sharing topics (excluding self)
+    shared_items_query = (
+        select(
+            content_topics.c.content_id,
+            func.count(content_topics.c.topic_id).label('shared_count')
+        )
+        .where(
+            and_(
+                content_topics.c.topic_id.in_(item_topic_ids),
+                content_topics.c.content_id != item.id
+            )
+        )
+        .group_by(content_topics.c.content_id)
+        .having(func.count(content_topics.c.topic_id) >= 2)  # At least 2 shared topics
+    )
+
+    result = await db.execute(shared_items_query)
+    shared_items = result.all()
+
+    for related_id, shared_count in shared_items:
+        # Check if relation already exists
+        existing = await db.execute(
+            select(ItemRelation).where(
+                ((ItemRelation.source_id == item.id) & (ItemRelation.target_id == related_id)) |
+                ((ItemRelation.source_id == related_id) & (ItemRelation.target_id == item.id))
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        # Calculate confidence based on topic overlap
+        confidence = min(shared_count / len(item_topic_ids), 1.0)
+
+        relation = ItemRelation(
+            source_id=item.id,
+            target_id=related_id,
+            relation_type=RelationType.RELATED,
+            confidence=confidence,
+        )
+        db.add(relation)
+
+    logger.info(f"Item {item.id}: created {len(shared_items)} relations")
 
 
 async def _process_item_async(item_id: uuid.UUID, db_url: str):
@@ -132,6 +189,11 @@ async def _process_item_async(item_id: uuid.UUID, db_url: str):
                 item.raw_text = None
 
                 await db.commit()
+
+                # Calculate relations to other items based on shared topics
+                await _calculate_relations(item, db)
+                await db.commit()
+
                 logger.info(f"Item {item_id}: processing COMPLETED successfully")
 
             except Exception as e:
