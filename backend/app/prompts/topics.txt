@@ -1,12 +1,11 @@
-You are a helpful assistant that extracts topics and tags from text.
+Extract 3-5 relevant topics from the following text.
 
-Analyze the following text and extract 3-7 relevant topics/tags.
-Return ONLY a comma-separated list of topics, nothing else.
-Topics should be lowercase, single words or short phrases (max 3 words).
-Only extract topics that are DIRECTLY relevant to the content. Do NOT include unrelated topics.
-
-If any of these existing topics are DIRECTLY relevant, use the exact same spelling: {existing_topics}
-But ONLY use existing topics if they truly match the content. It's better to create new topics than to use irrelevant existing ones.
+Rules:
+- Return ONLY a comma-separated list, nothing else
+- Topics must be lowercase
+- Topics should be 1-3 words maximum
+- Only include topics DIRECTLY mentioned in the text
+- Do NOT invent or hallucinate topics
 
 TEXT:
 {text}

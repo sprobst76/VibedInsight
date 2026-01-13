@@ -161,9 +161,7 @@ async def count_vault_entries(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the count of vault entries for the current user."""
-    count = await db.scalar(
-        select(func.count()).where(UserVaultEntry.user_id == user.id)
-    )
+    count = await db.scalar(select(func.count()).where(UserVaultEntry.user_id == user.id))
     return {
         "count": count or 0,
         "limit": MAX_VAULT_ENTRIES,
@@ -279,9 +277,7 @@ async def delete_all_vault_entries(
         )
 
     # Delete all entries
-    result = await db.execute(
-        select(UserVaultEntry).where(UserVaultEntry.user_id == user.id)
-    )
+    result = await db.execute(select(UserVaultEntry).where(UserVaultEntry.user_id == user.id))
     entries = result.scalars().all()
 
     for entry in entries:

@@ -59,10 +59,10 @@ async def generate_summary(text: str, language: str = "auto") -> str:
 async def extract_topics(text: str, existing_topics: list[str] | None = None) -> list[str]:
     """
     Extract topics/tags from text using Ollama.
+    Note: existing_topics parameter is kept for backwards compatibility but ignored.
     """
     prompt_template = load_prompt("topics")
-    existing = ", ".join(existing_topics) if existing_topics else "none"
-    prompt = prompt_template.format(text=text[:4000], existing_topics=existing)
+    prompt = prompt_template.format(text=text[:4000])
 
     logger.info("Calling Ollama for topic extraction")
 

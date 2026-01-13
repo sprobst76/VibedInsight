@@ -56,9 +56,7 @@ class User(Base):
 
     # Recovery codes (hashed, like 2FA backup codes)
     # 10 codes in format XXXX-XXXX-XXXX, bcrypt hashed
-    recovery_codes_hash: Mapped[list[str] | None] = mapped_column(
-        ARRAY(String(255)), nullable=True
-    )
+    recovery_codes_hash: Mapped[list[str] | None] = mapped_column(ARRAY(String(255)), nullable=True)
     recovery_codes_used: Mapped[list[bool] | None] = mapped_column(
         ARRAY(Boolean),
         nullable=True,
@@ -102,9 +100,7 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     token_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True)
 
     # Token metadata
@@ -142,21 +138,15 @@ class UserVaultEntry(Base):
     __tablename__ = "user_vault_entries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
 
     # Encrypted payload (AES-256-GCM, client-side encrypted)
     # Contains: content_id, is_favorite, is_read, is_archived, user_notes, added_at
     encrypted_data: Mapped[str] = mapped_column(Text)
 
     # Unencrypted for filtering (privacy trade-off for usability)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, index=True
-    )
-    topic_ids: Mapped[list[int] | None] = mapped_column(
-        ARRAY(Integer), nullable=True, default=list
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    topic_ids: Mapped[list[int] | None] = mapped_column(ARRAY(Integer), nullable=True, default=list)
 
     # Hash of content_id to prevent duplicates (not the ID itself!)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -188,9 +178,7 @@ class UserItem(Base):
     # Integer ID for frontend compatibility (not UUID)
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     content_id: Mapped[uuid_module.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("content_items.id", ondelete="CASCADE"),
@@ -213,9 +201,7 @@ class UserItem(Base):
     content: Mapped[ContentItem] = relationship("ContentItem")
 
     # Unique constraint: one entry per content per user
-    __table_args__ = (
-        UniqueConstraint("user_id", "content_id", name="uq_user_item_content"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "content_id", name="uq_user_item_content"),)
 
 
 if TYPE_CHECKING:

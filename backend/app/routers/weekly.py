@@ -156,10 +156,7 @@ async def generate_summary(
     items = items_result.scalars().all()
 
     if not items:
-        raise HTTPException(
-            status_code=400,
-            detail="No processed items found for this week"
-        )
+        raise HTTPException(status_code=400, detail="No processed items found for this week")
 
     # Prepare content for summarization
     items_content = [
@@ -169,10 +166,7 @@ async def generate_summary(
     ]
 
     if not items_content:
-        raise HTTPException(
-            status_code=400,
-            detail="No items with summaries found for this week"
-        )
+        raise HTTPException(status_code=400, detail="No items with summaries found for this week")
 
     # Generate summary
     try:
@@ -190,10 +184,7 @@ async def generate_summary(
         return _summary_to_response(summary)
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate summary: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
 
 
 @router.post("/generate-current", response_model=WeeklySummaryResponse)

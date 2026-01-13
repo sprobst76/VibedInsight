@@ -140,6 +140,7 @@ class ItemRelationResponse(BaseModel):
 
 class ContentItemWithRelationsResponse(ContentItemResponse):
     """Content Item mit verwandten Items."""
+
     related_items: list[RelatedItemResponse] = []
 
 

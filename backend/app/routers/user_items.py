@@ -33,6 +33,7 @@ from app.schemas import (
 class BulkIdsRequest(BaseModel):
     ids: list[int]
 
+
 router = APIRouter()
 
 
@@ -80,9 +81,7 @@ async def list_items(
     # Base query: user's items with content loaded
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.user_id == user.id)
     )
 
@@ -101,9 +100,7 @@ async def list_items(
 
     # Topic filter - need to join through content
     if topic_id is not None:
-        query = query.join(UserItem.content).where(
-            ContentItem.topics.any(Topic.id == topic_id)
-        )
+        query = query.join(UserItem.content).where(ContentItem.topics.any(Topic.id == topic_id))
 
     # Search filter
     if search:
@@ -169,9 +166,7 @@ async def get_item(
     """Get a single user item by ID."""
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id == item_id, UserItem.user_id == user.id)
     )
     result = await db.execute(query)
@@ -196,9 +191,7 @@ async def get_item_with_relations(
     """
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id == item_id, UserItem.user_id == user.id)
     )
     result = await db.execute(query)
@@ -211,6 +204,7 @@ async def get_item_with_relations(
 
     # Get relations
     from sqlalchemy import or_
+
     relations_query = (
         select(ItemRelation)
         .options(
@@ -234,13 +228,15 @@ async def get_item_with_relations(
         else:
             related = rel.source_item
 
-        related_items.append({
-            "id": str(related.id),  # UUID as string for frontend
-            "title": related.title,
-            "source": related.source,
-            "relation_type": rel.relation_type.value,
-            "confidence": rel.confidence,
-        })
+        related_items.append(
+            {
+                "id": str(related.id),  # UUID as string for frontend
+                "title": related.title,
+                "source": related.source,
+                "relation_type": rel.relation_type.value,
+                "confidence": rel.confidence,
+            }
+        )
 
     # Build response with relations
     base_response = _build_user_item_response(user_item)
@@ -259,9 +255,7 @@ async def toggle_favorite(
     """Toggle favorite status for an item."""
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id == item_id, UserItem.user_id == user.id)
     )
     result = await db.execute(query)
@@ -286,9 +280,7 @@ async def toggle_read(
     """Toggle read status for an item."""
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id == item_id, UserItem.user_id == user.id)
     )
     result = await db.execute(query)
@@ -313,9 +305,7 @@ async def toggle_archive(
     """Toggle archive status for an item."""
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id == item_id, UserItem.user_id == user.id)
     )
     result = await db.execute(query)
@@ -338,9 +328,7 @@ async def delete_item(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a user item (removes the user-content link, not the content itself)."""
-    query = select(UserItem).where(
-        UserItem.id == item_id, UserItem.user_id == user.id
-    )
+    query = select(UserItem).where(UserItem.id == item_id, UserItem.user_id == user.id)
     result = await db.execute(query)
     user_item = result.scalar_one_or_none()
 
@@ -366,9 +354,7 @@ async def bulk_delete(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete multiple user items."""
-    query = select(UserItem).where(
-        UserItem.id.in_(request.ids), UserItem.user_id == user.id
-    )
+    query = select(UserItem).where(UserItem.id.in_(request.ids), UserItem.user_id == user.id)
     result = await db.execute(query)
     user_items = result.scalars().all()
 
@@ -396,9 +382,7 @@ async def bulk_mark_read(
     """Mark multiple items as read."""
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id.in_(request.ids), UserItem.user_id == user.id)
     )
     result = await db.execute(query)
@@ -421,9 +405,7 @@ async def bulk_archive(
     """Archive multiple items."""
     query = (
         select(UserItem)
-        .options(
-            selectinload(UserItem.content).selectinload(ContentItem.topics)
-        )
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.id.in_(request.ids), UserItem.user_id == user.id)
     )
     result = await db.execute(query)

@@ -192,9 +192,7 @@ async def get_item_with_relations(
         existing_ids = {r.id for r in related_items}
         for shared_item in shared_items:
             if shared_item.id not in existing_ids:
-                shared_topic_count = len(
-                    set(t.id for t in shared_item.topics) & set(topic_ids)
-                )
+                shared_topic_count = len(set(t.id for t in shared_item.topics) & set(topic_ids))
                 confidence = min(0.3 + (shared_topic_count * 0.2), 0.9)
 
                 related_items.append(
@@ -238,12 +236,8 @@ async def create_relation(
     Since content is anonymous, any authenticated user can create relations.
     """
     # Verify both items exist
-    source_result = await db.execute(
-        select(ContentItem).where(ContentItem.id == item_id)
-    )
-    target_result = await db.execute(
-        select(ContentItem).where(ContentItem.id == target_id)
-    )
+    source_result = await db.execute(select(ContentItem).where(ContentItem.id == item_id))
+    target_result = await db.execute(select(ContentItem).where(ContentItem.id == target_id))
 
     if not source_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Source item not found")

@@ -65,9 +65,7 @@ def _get_client_info(request: Request) -> tuple[str | None, str | None]:
     return user_agent, ip_address
 
 
-@router.post(
-    "/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     data: UserRegister,
     request: Request,

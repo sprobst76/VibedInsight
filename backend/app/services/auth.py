@@ -171,9 +171,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def create_user(
-    db: AsyncSession, email: str, password: str
-) -> tuple[User, list[str]]:
+async def create_user(db: AsyncSession, email: str, password: str) -> tuple[User, list[str]]:
     """
     Create a new user with hashed password, vault key salt, and recovery codes.
 
@@ -318,8 +316,7 @@ async def cleanup_expired_tokens(db: AsyncSession) -> int:
     """
     result = await db.execute(
         select(RefreshToken).where(
-            (RefreshToken.expires_at < datetime.utcnow())
-            | (RefreshToken.is_revoked == True)  # noqa: E712
+            (RefreshToken.expires_at < datetime.utcnow()) | (RefreshToken.is_revoked == True)  # noqa: E712
         )
     )
     tokens = result.scalars().all()
@@ -389,9 +386,7 @@ async def recover_account(
 
     # Find matching unused recovery code
     code_index = None
-    for i, (hashed, used) in enumerate(
-        zip(user.recovery_codes_hash, user.recovery_codes_used)
-    ):
+    for i, (hashed, used) in enumerate(zip(user.recovery_codes_hash, user.recovery_codes_used)):
         if not used and verify_recovery_code(recovery_code, hashed):
             code_index = i
             break
