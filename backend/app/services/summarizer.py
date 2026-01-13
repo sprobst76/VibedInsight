@@ -36,40 +36,34 @@ def _parse_topics_response(content: str) -> list[str]:
     """
     import re
 
-    # Step 1: Strip any preamble text ending with ":"
-    # This handles cases like "Here are the topics: topic1, topic2"
-    # or "Here are the topics:\n\ntopic1, topic2"
     text = content.strip()
 
-    # Remove preamble ending with colon (handles multiline)
-    # Pattern: anything ending with ":" followed by optional whitespace/newlines
-    preamble_pattern = r"^.*?:\s*"
-    if re.match(preamble_pattern, text, re.IGNORECASE | re.DOTALL):
-        # Find the colon and take everything after it
-        colon_idx = text.find(":")
-        if colon_idx != -1:
-            text = text[colon_idx + 1 :].strip()
+    # Step 1: Find the LAST colon that looks like a preamble ending
+    # Look for patterns like "topics:" or "text:" and take everything after
+    last_preamble_idx = -1
+    for match in re.finditer(r"(topic|text|following|result)s?:\s*", text, re.IGNORECASE):
+        last_preamble_idx = match.end()
 
-    # Step 2: Split into lines and filter empties
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    if last_preamble_idx > 0:
+        text = text[last_preamble_idx:].strip()
+
+    # Step 2: Split by commas first (if present)
+    # This handles "topic1, topic2, topic3" format
+    if "," in text:
+        raw_topics = [t.strip() for t in text.split(",") if t.strip()]
+    else:
+        # Split by newlines for "topic1\ntopic2\ntopic3" format
+        raw_topics = [line.strip() for line in text.split("\n") if line.strip()]
 
     topics = []
-
-    # Step 3: Try comma-separated first (if we have commas in the text)
-    full_text = " ".join(lines)
-    if "," in full_text and full_text.count(",") >= 1:
-        topics = [t.strip() for t in full_text.split(",") if t.strip()]
-    else:
-        # Try newline-separated
-        for line in lines:
-            # Remove numbering (1., 2., etc.) and bullets (-, *)
-            cleaned = line.strip()
-            if cleaned and cleaned[0].isdigit():
-                # Remove "1. " or "1) " prefix
-                cleaned = cleaned.lstrip("0123456789").lstrip(".)")
-            cleaned = cleaned.lstrip("-*•").strip()
-            if cleaned:
-                topics.append(cleaned)
+    for topic in raw_topics:
+        # Remove numbering (1., 2., etc.) and bullets (-, *)
+        cleaned = topic.strip()
+        if cleaned and cleaned[0].isdigit():
+            cleaned = re.sub(r"^\d+[\.\)]\s*", "", cleaned)
+        cleaned = cleaned.lstrip("-*•").strip()
+        if cleaned:
+            topics.append(cleaned)
 
     # Clean up topics
     result = []
