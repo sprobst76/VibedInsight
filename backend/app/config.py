@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
+    ollama_embedding_model: str = "nomic-embed-text"  # For semantic similarity
 
     # API
     api_host: str = "0.0.0.0"

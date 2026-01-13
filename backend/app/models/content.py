@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Table, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -86,13 +86,9 @@ class ContentItem(Base):
     __tablename__ = "content_items"
 
     # UUID primary key (not incremental, prevents enumeration)
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    content_type: Mapped[ContentType] = mapped_column(
-        Enum(ContentType), default=ContentType.LINK
-    )
+    content_type: Mapped[ContentType] = mapped_column(Enum(ContentType), default=ContentType.LINK)
     status: Mapped[ProcessingStatus] = mapped_column(
         Enum(ProcessingStatus), default=ProcessingStatus.PENDING
     )
@@ -119,9 +115,7 @@ class ContentItem(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
-    topics: Mapped[list[Topic]] = relationship(
-        secondary=content_topics, back_populates="items"
-    )
+    topics: Mapped[list[Topic]] = relationship(secondary=content_topics, back_populates="items")
 
     # Graph relations (outgoing)
     outgoing_relations: Mapped[list["ItemRelation"]] = relationship(
@@ -196,4 +190,36 @@ class ItemRelation(Base):
     )
     target_item: Mapped["ContentItem"] = relationship(
         "ContentItem", foreign_keys=[target_id], back_populates="incoming_relations"
+    )
+
+
+class ContentEmbedding(Base):
+    """
+    Embeddings for semantic similarity search.
+
+    Stored separately from ContentItem to keep the main table lean
+    and allow for easy embedding model updates.
+    """
+
+    __tablename__ = "content_embeddings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    content_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("content_items.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+    )
+
+    # Embedding vector (768 dimensions for nomic-embed-text)
+    # Stored as array of floats
+    embedding: Mapped[list[float]] = mapped_column(ARRAY(Float), nullable=False)
+
+    # Model used to generate embedding (for versioning)
+    model: Mapped[str] = mapped_column(String(100), default="nomic-embed-text")
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )

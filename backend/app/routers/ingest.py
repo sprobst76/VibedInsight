@@ -24,7 +24,14 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_dev_or_current_user
-from app.models.content import ContentItem, ContentType, ItemRelation, ProcessingStatus, RelationType, Topic
+from app.models.content import (
+    ContentItem,
+    ContentType,
+    ItemRelation,
+    ProcessingStatus,
+    RelationType,
+    Topic,
+)
 from app.models.user import User, UserItem
 from app.schemas import (
     ContentItemResponse,
@@ -79,18 +86,18 @@ async def _calculate_relations(item: ContentItem, db: AsyncSession):
 
     # Find other items that share at least 2 topics
     from sqlalchemy import and_, func
+
     from app.models.content import content_topics
 
     # Query for items sharing topics (excluding self)
     shared_items_query = (
         select(
-            content_topics.c.content_id,
-            func.count(content_topics.c.topic_id).label('shared_count')
+            content_topics.c.content_id, func.count(content_topics.c.topic_id).label("shared_count")
         )
         .where(
             and_(
                 content_topics.c.topic_id.in_(item_topic_ids),
-                content_topics.c.content_id != item.id
+                content_topics.c.content_id != item.id,
             )
         )
         .group_by(content_topics.c.content_id)
@@ -104,8 +111,8 @@ async def _calculate_relations(item: ContentItem, db: AsyncSession):
         # Check if relation already exists
         existing = await db.execute(
             select(ItemRelation).where(
-                ((ItemRelation.source_id == item.id) & (ItemRelation.target_id == related_id)) |
-                ((ItemRelation.source_id == related_id) & (ItemRelation.target_id == item.id))
+                ((ItemRelation.source_id == item.id) & (ItemRelation.target_id == related_id))
+                | ((ItemRelation.source_id == related_id) & (ItemRelation.target_id == item.id))
             )
         )
         if existing.scalar_one_or_none():
@@ -201,9 +208,7 @@ async def _process_item_async(item_id: uuid.UUID, db_url: str):
                 logger.error(traceback.format_exc())
                 try:
                     await db.rollback()
-                    result = await db.execute(
-                        select(ContentItem).where(ContentItem.id == item_id)
-                    )
+                    result = await db.execute(select(ContentItem).where(ContentItem.id == item_id))
                     item = result.scalar_one_or_none()
                     if item:
                         item.status = ProcessingStatus.FAILED
@@ -459,9 +464,7 @@ async def decrement_ref_count(
     Call this when removing content from a user's vault.
     If ref_count reaches 0, the content becomes eligible for garbage collection.
     """
-    result = await db.execute(
-        select(ContentItem).where(ContentItem.id == content_id)
-    )
+    result = await db.execute(select(ContentItem).where(ContentItem.id == content_id))
     item = result.scalar_one_or_none()
 
     if not item:
