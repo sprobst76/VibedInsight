@@ -34,35 +34,34 @@ def _parse_topics_response(content: str) -> list[str]:
     - Numbered lists: "1. topic1\n2. topic2"
     - Bullet lists: "- topic1\n- topic2"
     """
-    # Remove common prefixes/preambles
-    lines = content.strip().split("\n")
+    import re
 
-    # Skip lines that look like preambles (contain "topic" or ":" or are empty)
-    filtered_lines = []
-    skip_preamble = True
-    for line in lines:
-        line_lower = line.lower().strip()
-        # Skip empty lines and preamble lines
-        if not line_lower:
-            continue
-        if skip_preamble and ("topic" in line_lower and ("here" in line_lower or ":" in line_lower)):
-            continue
-        if skip_preamble and line_lower.endswith(":"):
-            continue
-        skip_preamble = False
-        filtered_lines.append(line.strip())
+    # Step 1: Strip any preamble text ending with ":"
+    # This handles cases like "Here are the topics: topic1, topic2"
+    # or "Here are the topics:\n\ntopic1, topic2"
+    text = content.strip()
 
-    # Join remaining lines and try to parse
-    remaining = "\n".join(filtered_lines)
+    # Remove preamble ending with colon (handles multiline)
+    # Pattern: anything ending with ":" followed by optional whitespace/newlines
+    preamble_pattern = r"^.*?:\s*"
+    if re.match(preamble_pattern, text, re.IGNORECASE | re.DOTALL):
+        # Find the colon and take everything after it
+        colon_idx = text.find(":")
+        if colon_idx != -1:
+            text = text[colon_idx + 1 :].strip()
+
+    # Step 2: Split into lines and filter empties
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
 
     topics = []
 
-    # Try comma-separated first (most common expected format)
-    if "," in remaining and remaining.count(",") >= 2:
-        topics = [t.strip() for t in remaining.split(",") if t.strip()]
+    # Step 3: Try comma-separated first (if we have commas in the text)
+    full_text = " ".join(lines)
+    if "," in full_text and full_text.count(",") >= 1:
+        topics = [t.strip() for t in full_text.split(",") if t.strip()]
     else:
         # Try newline-separated
-        for line in filtered_lines:
+        for line in lines:
             # Remove numbering (1., 2., etc.) and bullets (-, *)
             cleaned = line.strip()
             if cleaned and cleaned[0].isdigit():
