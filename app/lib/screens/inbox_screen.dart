@@ -189,6 +189,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         ),
         _buildSortButton(),
         IconButton(
+          icon: const Icon(Icons.hub),
+          tooltip: 'Knowledge Graph',
+          onPressed: () => context.push('/graph'),
+        ),
+        IconButton(
           icon: const Icon(Icons.auto_awesome),
           tooltip: 'Weekly Summary',
           onPressed: () => context.push('/weekly'),

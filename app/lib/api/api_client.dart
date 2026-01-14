@@ -221,4 +221,10 @@ class ApiClient {
     final response = await _dio.post('/weekly/generate-current');
     return WeeklySummary.fromJson(response.data);
   }
+
+  // Graph Data
+  Future<GraphData> getGraphData() async {
+    final response = await _dio.get('/items/graph/data');
+    return GraphData.fromJson(response.data);
+  }
 }

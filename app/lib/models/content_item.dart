@@ -426,3 +426,92 @@ class WeeklySummaryListItem {
     return months[month - 1];
   }
 }
+
+// Graph Visualization Models
+
+class GraphNode {
+  final String id;
+  final String title;
+  final String? source;
+  final int topicCount;
+  final String? primaryTopic;
+  final List<String> topics;
+
+  GraphNode({
+    required this.id,
+    required this.title,
+    this.source,
+    required this.topicCount,
+    this.primaryTopic,
+    this.topics = const [],
+  });
+
+  factory GraphNode.fromJson(Map<String, dynamic> json) {
+    return GraphNode(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      source: json['source'] as String?,
+      topicCount: json['topic_count'] as int,
+      primaryTopic: json['primary_topic'] as String?,
+      topics: (json['topics'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+    );
+  }
+
+  String get shortTitle {
+    if (title.length <= 30) return title;
+    return '${title.substring(0, 27)}...';
+  }
+}
+
+class GraphEdge {
+  final String source;
+  final String target;
+  final double weight;
+  final String type;
+
+  GraphEdge({
+    required this.source,
+    required this.target,
+    required this.weight,
+    required this.type,
+  });
+
+  factory GraphEdge.fromJson(Map<String, dynamic> json) {
+    return GraphEdge(
+      source: json['source'] as String,
+      target: json['target'] as String,
+      weight: (json['weight'] as num).toDouble(),
+      type: json['type'] as String,
+    );
+  }
+}
+
+class GraphData {
+  final List<GraphNode> nodes;
+  final List<GraphEdge> edges;
+  final int nodeCount;
+  final int edgeCount;
+
+  GraphData({
+    required this.nodes,
+    required this.edges,
+    required this.nodeCount,
+    required this.edgeCount,
+  });
+
+  factory GraphData.fromJson(Map<String, dynamic> json) {
+    return GraphData(
+      nodes: (json['nodes'] as List<dynamic>)
+          .map((e) => GraphNode.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      edges: (json['edges'] as List<dynamic>)
+          .map((e) => GraphEdge.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      nodeCount: json['node_count'] as int,
+      edgeCount: json['edge_count'] as int,
+    );
+  }
+}

@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/weekly_screen.dart';
+import 'screens/graph_screen.dart';
 import 'services/notification_service.dart';
 import 'providers/share_intent_provider.dart';
 
@@ -42,6 +43,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/weekly',
       builder: (context, state) => const WeeklyScreen(),
+    ),
+    GoRoute(
+      path: '/graph',
+      builder: (context, state) => const GraphScreen(),
     ),
   ],
 );

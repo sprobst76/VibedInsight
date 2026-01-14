@@ -48,6 +48,9 @@ dependencies:
   # Routing
   go_router: ^15.1.2
 
+  # Graph Visualization
+  graphview: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
