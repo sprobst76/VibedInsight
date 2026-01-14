@@ -206,7 +206,7 @@ enum RelationType {
 }
 
 class RelatedItem {
-  final int id;
+  final String id;
   final String? title;
   final String? source;
   final RelationType relationType;
@@ -222,7 +222,7 @@ class RelatedItem {
 
   factory RelatedItem.fromJson(Map<String, dynamic> json) {
     return RelatedItem(
-      id: json['id'] as int,
+      id: json['id'].toString(),
       title: json['title'] as String?,
       source: json['source'] as String?,
       relationType: RelationType.fromString(json['relation_type'] as String),
