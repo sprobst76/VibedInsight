@@ -37,6 +37,62 @@ class BulkIdsRequest(BaseModel):
 router = APIRouter()
 
 
+@router.get("/graph/data")
+async def get_graph_data(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all content items and their relations as graph data.
+
+    Returns nodes (items) and edges (relations) for visualization.
+    """
+    from app.models.content import ProcessingStatus
+
+    # Get all completed items with their topics
+    items_query = (
+        select(ContentItem)
+        .options(selectinload(ContentItem.topics))
+        .where(ContentItem.status == ProcessingStatus.COMPLETED)
+    )
+    items_result = await db.execute(items_query)
+    items = items_result.scalars().all()
+
+    # Get all relations
+    relations_query = select(ItemRelation)
+    relations_result = await db.execute(relations_query)
+    relations = relations_result.scalars().all()
+
+    # Build nodes list
+    nodes = []
+    for item in items:
+        primary_topic = item.topics[0].name if item.topics else None
+        nodes.append({
+            "id": str(item.id),
+            "title": item.title or "Untitled",
+            "source": item.source,
+            "topic_count": len(item.topics),
+            "primary_topic": primary_topic,
+            "topics": [t.name for t in item.topics],
+        })
+
+    # Build edges list
+    edges = []
+    for rel in relations:
+        edges.append({
+            "source": str(rel.source_id),
+            "target": str(rel.target_id),
+            "weight": rel.confidence,
+            "type": rel.relation_type.value,
+        })
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+    }
+
+
 def _build_user_item_response(user_item: UserItem) -> UserItemResponse:
     """Build UserItemResponse from UserItem with loaded content."""
     content = user_item.content
