@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "003_enhanced_weekly_summary"
-down_revision: Union[str, None] = "002_add_content_embeddings"
+down_revision: Union[str, None] = "002_embeddings"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
