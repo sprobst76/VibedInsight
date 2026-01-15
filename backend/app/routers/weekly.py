@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import get_dev_or_current_user
 from app.models.content import ContentItem, ItemRelation, ProcessingStatus, WeeklySummary
-from app.models.user import User
+from app.models.user import User, UserItem
 from app.schemas import TopicCluster, WeeklySummaryListResponse, WeeklySummaryResponse
 from app.services.summarizer import generate_weekly_summary
 
@@ -78,21 +78,26 @@ async def get_current_week_summary(
 
     if not summary:
         # Create a new summary entry (without generating yet)
-        items_query = select(ContentItem).where(
-            ContentItem.created_at >= week_start,
-            ContentItem.created_at <= week_end,
-            ContentItem.user_id == user.id,
+        # Query through UserItem junction table
+        items_query = (
+            select(UserItem)
+            .options(selectinload(UserItem.content))
+            .where(
+                UserItem.user_id == user.id,
+                UserItem.created_at >= week_start,
+                UserItem.created_at <= week_end,
+            )
         )
         items_result = await db.execute(items_query)
-        items = items_result.scalars().all()
+        user_items = items_result.scalars().all()
 
-        processed_items = [i for i in items if i.status == ProcessingStatus.COMPLETED]
+        processed_items = [ui for ui in user_items if ui.content.status == ProcessingStatus.COMPLETED]
 
         summary = WeeklySummary(
             user_id=user.id,
             week_start=week_start,
             week_end=week_end,
-            items_count=len(items),
+            items_count=len(user_items),
             items_processed=len(processed_items),
         )
         db.add(summary)
@@ -143,19 +148,23 @@ async def generate_summary(
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get items for this week belonging to the user WITH topics
-    items_query = (
-        select(ContentItem)
-        .options(selectinload(ContentItem.topics))
-        .where(
-            ContentItem.created_at >= summary.week_start,
-            ContentItem.created_at <= summary.week_end,
-            ContentItem.user_id == user.id,
-            ContentItem.status == ProcessingStatus.COMPLETED,
+    # Query through UserItem junction table
+    user_items_query = (
+        select(UserItem)
+        .options(
+            selectinload(UserItem.content).selectinload(ContentItem.topics)
         )
-        .order_by(ContentItem.created_at.desc())
+        .where(
+            UserItem.user_id == user.id,
+            UserItem.created_at >= summary.week_start,
+            UserItem.created_at <= summary.week_end,
+        )
     )
-    items_result = await db.execute(items_query)
-    items = items_result.scalars().all()
+    user_items_result = await db.execute(user_items_query)
+    user_items = user_items_result.scalars().all()
+
+    # Filter to completed items
+    items = [ui.content for ui in user_items if ui.content.status == ProcessingStatus.COMPLETED]
 
     if not items:
         raise HTTPException(status_code=400, detail="No processed items found for this week")
@@ -241,39 +250,47 @@ async def generate_current_week_summary(
     summary = result.scalar_one_or_none()
 
     if not summary:
-        # Get items for counting (user's items only)
-        items_query = select(ContentItem).where(
-            ContentItem.created_at >= week_start,
-            ContentItem.created_at <= week_end,
-            ContentItem.user_id == user.id,
+        # Get items for counting (user's items only) via UserItem
+        user_items_query = (
+            select(UserItem)
+            .options(selectinload(UserItem.content))
+            .where(
+                UserItem.user_id == user.id,
+                UserItem.created_at >= week_start,
+                UserItem.created_at <= week_end,
+            )
         )
-        items_result = await db.execute(items_query)
-        items = items_result.scalars().all()
+        user_items_result = await db.execute(user_items_query)
+        user_items = user_items_result.scalars().all()
 
         summary = WeeklySummary(
             user_id=user.id,
             week_start=week_start,
             week_end=week_end,
-            items_count=len(items),
+            items_count=len(user_items),
         )
         db.add(summary)
         await db.commit()
         await db.refresh(summary)
 
     # Get processed items for this week (user's items only) WITH topics
-    items_query = (
-        select(ContentItem)
-        .options(selectinload(ContentItem.topics))
-        .where(
-            ContentItem.created_at >= summary.week_start,
-            ContentItem.created_at <= summary.week_end,
-            ContentItem.user_id == user.id,
-            ContentItem.status == ProcessingStatus.COMPLETED,
+    # Query through UserItem junction table
+    user_items_query = (
+        select(UserItem)
+        .options(
+            selectinload(UserItem.content).selectinload(ContentItem.topics)
         )
-        .order_by(ContentItem.created_at.desc())
+        .where(
+            UserItem.user_id == user.id,
+            UserItem.created_at >= summary.week_start,
+            UserItem.created_at <= summary.week_end,
+        )
     )
-    items_result = await db.execute(items_query)
-    items = items_result.scalars().all()
+    user_items_result = await db.execute(user_items_query)
+    user_items = user_items_result.scalars().all()
+
+    # Filter to completed items
+    items = [ui.content for ui in user_items if ui.content.status == ProcessingStatus.COMPLETED]
 
     if not items:
         return _summary_to_response(summary)
