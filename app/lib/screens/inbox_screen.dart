@@ -9,6 +9,7 @@ import '../models/content_item.dart';
 import '../providers/items_provider.dart';
 import '../providers/share_intent_provider.dart';
 import '../providers/topics_provider.dart';
+import '../providers/weekly_provider.dart';
 import '../widgets/add_note_dialog.dart';
 import '../widgets/add_url_dialog.dart';
 import '../widgets/item_card.dart';
@@ -138,7 +139,41 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     }
   }
 
+  Future<void> _generateWeeklySummary() async {
+    final weeklyState = ref.read(weeklyProvider);
+    if (weeklyState.isGenerating) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Summary wird bereits generiert...')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Wochenzusammenfassung wird generiert...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    await ref.read(weeklyProvider.notifier).generateCurrentWeekSummary();
+
+    if (mounted) {
+      final newState = ref.read(weeklyProvider);
+      if (newState.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler: ${newState.error}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      // Notification is shown automatically by the provider
+    }
+  }
+
   void _showAddOptions() {
+    final weeklyState = ref.read(weeklyProvider);
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -161,6 +196,24 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               onTap: () {
                 Navigator.pop(context);
                 _addNote();
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(
+                Icons.auto_awesome,
+                color: weeklyState.isGenerating ? Colors.grey : null,
+              ),
+              title: const Text('Wochenzusammenfassung'),
+              subtitle: Text(
+                weeklyState.isGenerating
+                    ? 'Wird generiert...'
+                    : 'KI-Summary erstellen (Benachrichtigung wenn fertig)',
+              ),
+              enabled: !weeklyState.isGenerating,
+              onTap: () {
+                Navigator.pop(context);
+                _generateWeeklySummary();
               },
             ),
           ],

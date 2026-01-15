@@ -118,9 +118,17 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
   }
 
   Widget _buildHeader(WeeklySummary summary) {
-    final dateFormat = DateFormat('d. MMM', 'de_DE');
-    final weekRange =
-        '${dateFormat.format(summary.weekStart)} - ${dateFormat.format(summary.weekEnd)}';
+    // Use German locale with fallback to default if not initialized
+    late final String weekRange;
+    try {
+      final dateFormat = DateFormat('d. MMM', 'de_DE');
+      weekRange =
+          '${dateFormat.format(summary.weekStart)} - ${dateFormat.format(summary.weekEnd)}';
+    } catch (_) {
+      final dateFormat = DateFormat('d. MMM');
+      weekRange =
+          '${dateFormat.format(summary.weekStart)} - ${dateFormat.format(summary.weekEnd)}';
+    }
 
     return Card(
       child: Padding(

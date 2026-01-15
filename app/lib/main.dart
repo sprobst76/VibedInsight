@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import 'screens/inbox_screen.dart';
@@ -15,6 +16,9 @@ void main() async {
 
   // Initialize notifications
   await NotificationService().initialize();
+
+  // Initialize date formatting for German locale
+  await initializeDateFormatting('de_DE');
 
   // Initialize timeago localization
   timeago.setLocaleMessages('de', timeago.DeMessages());
