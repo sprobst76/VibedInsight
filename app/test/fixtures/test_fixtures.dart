@@ -150,7 +150,7 @@ class TestItems {
 /// Sample RelatedItems
 class TestRelatedItems {
   static RelatedItem get relatedItem => RelatedItem(
-        id: 10,
+        id: '10',
         title: 'Related Article',
         source: 'related.com',
         relationType: RelationType.related,
@@ -158,7 +158,7 @@ class TestRelatedItems {
       );
 
   static RelatedItem get similarItem => RelatedItem(
-        id: 11,
+        id: '11',
         title: 'Similar Article',
         source: 'similar.com',
         relationType: RelationType.similar,

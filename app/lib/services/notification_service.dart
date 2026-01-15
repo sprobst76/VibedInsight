@@ -83,6 +83,34 @@ class NotificationService {
     );
   }
 
+  /// Show notification when weekly summary is ready
+  Future<void> showWeeklySummaryReady({
+    required String tldr,
+    required int weekId,
+  }) async {
+    await _notifications.show(
+      weekId,
+      'Deine Woche auf einen Blick',
+      tldr.length > 100 ? '${tldr.substring(0, 100)}...' : tldr,
+      _weeklySummaryDetails(),
+      payload: 'weekly:$weekId',
+    );
+  }
+
+  NotificationDetails _weeklySummaryDetails() {
+    return const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'weekly_summary',
+        'Wochenzusammenfassung',
+        channelDescription: 'Benachrichtigungen zu Wochenzusammenfassungen',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+  }
+
   /// Show ongoing progress notification
   Future<void> showProgress({
     required int id,

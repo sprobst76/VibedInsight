@@ -2,14 +2,15 @@ import json
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_dev_or_current_user
-from app.models.content import ContentItem, ProcessingStatus, WeeklySummary
+from app.models.content import ContentItem, ItemRelation, ProcessingStatus, WeeklySummary
 from app.models.user import User
-from app.schemas import WeeklySummaryListResponse, WeeklySummaryResponse
+from app.schemas import TopicCluster, WeeklySummaryListResponse, WeeklySummaryResponse
 from app.services.summarizer import generate_weekly_summary
 
 router = APIRouter()
@@ -141,9 +142,10 @@ async def generate_summary(
     if summary.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Get items for this week belonging to the user
+    # Get items for this week belonging to the user WITH topics
     items_query = (
         select(ContentItem)
+        .options(selectinload(ContentItem.topics))
         .where(
             ContentItem.created_at >= summary.week_start,
             ContentItem.created_at <= summary.week_end,
@@ -168,13 +170,48 @@ async def generate_summary(
     if not items_content:
         raise HTTPException(status_code=400, detail="No items with summaries found for this week")
 
+    # Build topics by item
+    topics_by_item = {
+        item.title or "Untitled": [t.name for t in item.topics]
+        for item in items
+        if item.summary
+    }
+
+    # Load relations between items
+    item_ids = [item.id for item in items]
+    relations_query = select(ItemRelation).where(
+        or_(
+            ItemRelation.source_id.in_(item_ids),
+            ItemRelation.target_id.in_(item_ids),
+        )
+    )
+    relations_result = await db.execute(relations_query)
+    relations_raw = relations_result.scalars().all()
+
+    # Build item ID to title map
+    id_to_title = {item.id: item.title or "Untitled" for item in items}
+
+    # Build relations list with titles
+    relations = [
+        {
+            "source_title": id_to_title.get(rel.source_id, "Unbekannt"),
+            "target_title": id_to_title.get(rel.target_id, "Unbekannt"),
+            "relation_type": rel.relation_type.value,
+        }
+        for rel in relations_raw
+        if rel.source_id in id_to_title and rel.target_id in id_to_title
+    ]
+
     # Generate summary
     try:
-        result = await generate_weekly_summary(items_content)
+        result = await generate_weekly_summary(items_content, topics_by_item, relations)
 
+        summary.tldr = result.get("tldr", "")
         summary.summary = result["summary"]
         summary.key_insights = json.dumps(result["key_insights"])
         summary.top_topics = json.dumps(result["top_topics"])
+        summary.topic_clusters = json.dumps(result.get("topic_clusters", []))
+        summary.connections = json.dumps(result.get("connections", []))
         summary.generated_at = datetime.utcnow()
         summary.items_processed = len(items_content)
 
@@ -223,9 +260,10 @@ async def generate_current_week_summary(
         await db.commit()
         await db.refresh(summary)
 
-    # Get processed items for this week (user's items only)
+    # Get processed items for this week (user's items only) WITH topics
     items_query = (
         select(ContentItem)
+        .options(selectinload(ContentItem.topics))
         .where(
             ContentItem.created_at >= summary.week_start,
             ContentItem.created_at <= summary.week_end,
@@ -249,13 +287,48 @@ async def generate_current_week_summary(
     if not items_content:
         return _summary_to_response(summary)
 
+    # Build topics by item
+    topics_by_item = {
+        item.title or "Untitled": [t.name for t in item.topics]
+        for item in items
+        if item.summary
+    }
+
+    # Load relations between items
+    item_ids = [item.id for item in items]
+    relations_query = select(ItemRelation).where(
+        or_(
+            ItemRelation.source_id.in_(item_ids),
+            ItemRelation.target_id.in_(item_ids),
+        )
+    )
+    relations_result = await db.execute(relations_query)
+    relations_raw = relations_result.scalars().all()
+
+    # Build item ID to title map
+    id_to_title = {item.id: item.title or "Untitled" for item in items}
+
+    # Build relations list with titles
+    relations = [
+        {
+            "source_title": id_to_title.get(rel.source_id, "Unbekannt"),
+            "target_title": id_to_title.get(rel.target_id, "Unbekannt"),
+            "relation_type": rel.relation_type.value,
+        }
+        for rel in relations_raw
+        if rel.source_id in id_to_title and rel.target_id in id_to_title
+    ]
+
     # Generate summary
     try:
-        result = await generate_weekly_summary(items_content)
+        result = await generate_weekly_summary(items_content, topics_by_item, relations)
 
+        summary.tldr = result.get("tldr", "")
         summary.summary = result["summary"]
         summary.key_insights = json.dumps(result["key_insights"])
         summary.top_topics = json.dumps(result["top_topics"])
+        summary.topic_clusters = json.dumps(result.get("topic_clusters", []))
+        summary.connections = json.dumps(result.get("connections", []))
         summary.generated_at = datetime.utcnow()
         summary.items_processed = len(items_content)
 
@@ -271,13 +344,27 @@ async def generate_current_week_summary(
 
 def _summary_to_response(summary: WeeklySummary) -> WeeklySummaryResponse:
     """Convert WeeklySummary model to response schema."""
+    # Parse topic clusters
+    topic_clusters_raw = json.loads(summary.topic_clusters) if summary.topic_clusters else []
+    topic_clusters = [
+        TopicCluster(
+            name=c.get("name", ""),
+            article_count=c.get("article_count", 0),
+            description=c.get("description", ""),
+        )
+        for c in topic_clusters_raw
+    ]
+
     return WeeklySummaryResponse(
         id=summary.id,
         week_start=summary.week_start,
         week_end=summary.week_end,
+        tldr=summary.tldr,
         summary=summary.summary,
         key_insights=json.loads(summary.key_insights) if summary.key_insights else [],
         top_topics=json.loads(summary.top_topics) if summary.top_topics else [],
+        topic_clusters=topic_clusters,
+        connections=json.loads(summary.connections) if summary.connections else [],
         items_count=summary.items_count,
         items_processed=summary.items_processed,
         created_at=summary.created_at,

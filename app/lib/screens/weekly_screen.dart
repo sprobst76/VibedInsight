@@ -13,6 +13,8 @@ class WeeklyScreen extends ConsumerStatefulWidget {
 }
 
 class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
+  bool _summaryExpanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +29,17 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Weekly Summary'),
+        title: const Text('Wochenzusammenfassung'),
+        actions: [
+          if (state.currentWeek?.hasSummary == true)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: state.isGenerating
+                  ? null
+                  : () => ref.read(weeklyProvider.notifier).generateCurrentWeekSummary(),
+              tooltip: 'Neu generieren',
+            ),
+        ],
       ),
       body: _buildBody(state),
     );
@@ -45,11 +57,11 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error: ${state.error}'),
+            Text('Fehler: ${state.error}'),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => ref.read(weeklyProvider.notifier).loadCurrentWeek(),
-              child: const Text('Retry'),
+              child: const Text('Erneut versuchen'),
             ),
           ],
         ),
@@ -58,7 +70,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
 
     final summary = state.currentWeek;
     if (summary == null) {
-      return const Center(child: Text('No data'));
+      return const Center(child: Text('Keine Daten'));
     }
 
     return RefreshIndicator(
@@ -70,14 +82,32 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(summary),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             if (summary.hasSummary) ...[
-              _buildSummarySection(summary),
-              const SizedBox(height: 24),
+              // TL;DR section - most prominent
+              if (summary.hasTldr) ...[
+                _buildTldrSection(summary),
+                const SizedBox(height: 20),
+              ],
+              // Topic Clusters
+              if (summary.hasTopicClusters) ...[
+                _buildTopicClustersSection(summary),
+                const SizedBox(height: 20),
+              ],
+              // Connections
+              if (summary.hasConnections) ...[
+                _buildConnectionsSection(summary),
+                const SizedBox(height: 20),
+              ],
+              // Full Summary (collapsible)
+              _buildFullSummarySection(summary),
+              const SizedBox(height: 20),
+              // Key Insights
               if (summary.keyInsights.isNotEmpty) ...[
                 _buildInsightsSection(summary),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
               ],
+              // Top Topics (as chips)
               if (summary.topTopics.isNotEmpty) _buildTopicsSection(summary),
             ] else
               _buildEmptySummary(summary, state.isGenerating),
@@ -90,7 +120,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
   Widget _buildHeader(WeeklySummary summary) {
     final dateFormat = DateFormat('d. MMM', 'de_DE');
     final weekRange =
-        '${dateFormat.format(summary.weekStart)} – ${dateFormat.format(summary.weekEnd)}';
+        '${dateFormat.format(summary.weekStart)} - ${dateFormat.format(summary.weekEnd)}';
 
     return Card(
       child: Padding(
@@ -110,7 +140,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Current Week',
+                        'Aktuelle Woche',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       Text(
@@ -129,12 +159,12 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
               children: [
                 _buildStatChip(
                   Icons.article_outlined,
-                  '${summary.itemsCount} Items',
+                  '${summary.itemsCount} Artikel',
                 ),
                 const SizedBox(width: 8),
                 _buildStatChip(
                   Icons.check_circle_outline,
-                  '${summary.itemsProcessed} Processed',
+                  '${summary.itemsProcessed} verarbeitet',
                 ),
               ],
             ),
@@ -162,19 +192,85 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
     );
   }
 
-  Widget _buildSummarySection(WeeklySummary summary) {
+  Widget _buildTldrSection(WeeklySummary summary) {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.lightbulb,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'TL;DR',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              summary.tldr ?? '',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopicClustersSection(WeeklySummary summary) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Icon(
-              Icons.summarize,
-              color: Theme.of(context).colorScheme.primary,
+              Icons.category,
+              color: Theme.of(context).colorScheme.secondary,
             ),
             const SizedBox(width: 8),
             Text(
-              'Summary',
+              'Themen-Cluster',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: summary.topicClusters.map((cluster) {
+            return _TopicClusterCard(cluster: cluster);
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConnectionsSection(WeeklySummary summary) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.link,
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Verbindungen',
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ],
@@ -182,12 +278,86 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
         const SizedBox(height: 12),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              summary.summary ?? '',
-              style: Theme.of(context).textTheme.bodyMedium,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: summary.connections.map((connection) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.swap_horiz,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.tertiary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          connection,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFullSummarySection(WeeklySummary summary) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _summaryExpanded = !_summaryExpanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.description,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Zusammenfassung',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Icon(
+                  _summaryExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  summary.summary ?? '',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ),
+          ),
+          crossFadeState: _summaryExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
         ),
       ],
     );
@@ -200,7 +370,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
         Row(
           children: [
             Icon(
-              Icons.lightbulb_outline,
+              Icons.auto_awesome,
               color: Theme.of(context).colorScheme.secondary,
             ),
             const SizedBox(width: 8),
@@ -216,8 +386,9 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
               child: Card(
                 child: ListTile(
                   leading: Icon(
-                    Icons.arrow_right,
+                    Icons.star,
                     color: Theme.of(context).colorScheme.secondary,
+                    size: 20,
                   ),
                   title: Text(insight),
                 ),
@@ -235,7 +406,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
           children: [
             Icon(
               Icons.tag,
-              color: Theme.of(context).colorScheme.tertiary,
+              color: Theme.of(context).colorScheme.outline,
             ),
             const SizedBox(width: 8),
             Text(
@@ -252,7 +423,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
               .map((topic) => Chip(
                     label: Text(topic),
                     backgroundColor:
-                        Theme.of(context).colorScheme.tertiaryContainer,
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   ))
               .toList(),
         ),
@@ -262,45 +433,118 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
 
   Widget _buildEmptySummary(WeeklySummary summary, bool isGenerating) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.auto_awesome,
-            size: 64,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No summary generated yet',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            summary.itemsProcessed > 0
-                ? 'Generate an AI summary of your ${summary.itemsProcessed} processed items'
-                : 'Add some content first to generate a summary',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          if (summary.itemsProcessed > 0)
-            FilledButton.icon(
-              onPressed: isGenerating
-                  ? null
-                  : () => ref.read(weeklyProvider.notifier).generateCurrentWeekSummary(),
-              icon: isGenerating
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(isGenerating ? 'Generating...' : 'Generate Summary'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
             ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'Keine Zusammenfassung vorhanden',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              summary.itemsProcessed > 0
+                  ? 'Erstelle eine KI-Zusammenfassung deiner ${summary.itemsProcessed} Artikel'
+                  : 'Fuege zuerst Inhalte hinzu',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            if (summary.itemsProcessed > 0)
+              FilledButton.icon(
+                onPressed: isGenerating
+                    ? null
+                    : () => ref.read(weeklyProvider.notifier).generateCurrentWeekSummary(),
+                icon: isGenerating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(isGenerating ? 'Wird generiert...' : 'Zusammenfassung erstellen'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicClusterCard extends StatelessWidget {
+  final TopicCluster cluster;
+
+  const _TopicClusterCard({required this.cluster});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          // Could filter inbox by this topic in the future
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.folder,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    cluster.name,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${cluster.articleCount} Artikel',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Text(
+                  cluster.description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

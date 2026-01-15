@@ -173,15 +173,74 @@ async def extract_topics(text: str, existing_topics: list[str] | None = None) ->
         raise
 
 
-async def generate_weekly_summary(items_content: list[dict]) -> dict:
+def _build_topics_summary(topics_by_item: dict[str, list[str]]) -> str:
+    """Build a topics overview string from topics data."""
+    if not topics_by_item:
+        return "Keine Themen zugewiesen."
+
+    # Count topic occurrences
+    topic_counts: dict[str, int] = {}
+    for topics in topics_by_item.values():
+        for topic in topics:
+            topic_counts[topic] = topic_counts.get(topic, 0) + 1
+
+    # Sort by count
+    sorted_topics = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)
+
+    lines = []
+    for topic, count in sorted_topics[:15]:  # Limit to 15 topics
+        lines.append(f"- {topic}: {count} Artikel")
+
+    return "\n".join(lines) if lines else "Keine Themen zugewiesen."
+
+
+def _build_relations_summary(relations: list[dict]) -> str:
+    """Build a relations overview string."""
+    if not relations:
+        return "Keine Verbindungen zwischen Artikeln erkannt."
+
+    lines = []
+    seen_pairs = set()
+
+    for rel in relations[:20]:  # Limit to 20 relations
+        source = rel.get("source_title", "Unbekannt")
+        target = rel.get("target_title", "Unbekannt")
+        rel_type = rel.get("relation_type", "related")
+
+        # Avoid duplicates (A-B = B-A)
+        pair_key = tuple(sorted([source, target]))
+        if pair_key in seen_pairs:
+            continue
+        seen_pairs.add(pair_key)
+
+        type_display = {
+            "related": "verwandt mit",
+            "extends": "erweitert",
+            "contradicts": "widerspricht",
+            "similar": "aehnlich zu",
+            "references": "referenziert",
+        }.get(rel_type, "verbunden mit")
+
+        lines.append(f'- "{source}" {type_display} "{target}"')
+
+    return "\n".join(lines) if lines else "Keine Verbindungen zwischen Artikeln erkannt."
+
+
+async def generate_weekly_summary(
+    items_content: list[dict],
+    topics_by_item: dict[str, list[str]] | None = None,
+    relations: list[dict] | None = None,
+) -> dict:
     """
     Generate a weekly summary from a list of content items.
 
     Args:
         items_content: List of dicts with 'title' and 'summary' keys
+        topics_by_item: Dict mapping item titles to their topics
+        relations: List of relation dicts with source_title, target_title, relation_type
 
     Returns:
-        Dict with 'summary', 'key_insights', and 'top_topics' keys
+        Dict with 'tldr', 'summary', 'key_insights', 'top_topics', 'topic_clusters', 'connections'
     """
     # Build content string from items
     content_parts = []
@@ -192,8 +251,16 @@ async def generate_weekly_summary(items_content: list[dict]) -> dict:
 
     content = "\n".join(content_parts)
 
+    # Build topics and relations summaries
+    topics_summary = _build_topics_summary(topics_by_item or {})
+    relations_summary = _build_relations_summary(relations or [])
+
     prompt_template = load_prompt("weekly_summary")
-    prompt = prompt_template.format(content=content[:12000])  # Limit input length
+    prompt = prompt_template.format(
+        content=content[:10000],
+        topics_summary=topics_summary,
+        relations_summary=relations_summary,
+    )
 
     logger.info("Generating weekly summary with Ollama")
 
@@ -213,8 +280,8 @@ async def generate_weekly_summary(items_content: list[dict]) -> dict:
         logger.info("Weekly summary response received")
 
         # Parse the response
-        content = response["message"]["content"]
-        return _parse_weekly_summary_response(content)
+        response_content = response["message"]["content"]
+        return _parse_weekly_summary_response(response_content)
 
     except TimeoutError:
         logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
@@ -226,29 +293,62 @@ async def generate_weekly_summary(items_content: list[dict]) -> dict:
 
 def _parse_weekly_summary_response(content: str) -> dict:
     """Parse the structured response from the weekly summary prompt."""
+    import re
+
     result = {
+        "tldr": "",
         "summary": "",
         "key_insights": [],
         "top_topics": [],
+        "topic_clusters": [],
+        "connections": [],
     }
 
     current_section = None
     summary_lines = []
+    tldr_lines = []
+    cluster_lines = []
+    connection_lines = []
 
     for line in content.split("\n"):
         line_stripped = line.strip()
 
-        if line_stripped.startswith("SUMMARY:"):
+        # Detect section headers
+        if line_stripped.startswith("TL;DR:") or line_stripped == "TL;DR":
+            current_section = "tldr"
+            # Handle inline content after colon
+            rest = line_stripped.replace("TL;DR:", "").replace("TL;DR", "").strip()
+            if rest:
+                tldr_lines.append(rest)
+            continue
+        elif line_stripped.startswith("THEMEN-CLUSTER:") or line_stripped == "THEMEN-CLUSTER":
+            current_section = "clusters"
+            continue
+        elif line_stripped.startswith("VERBINDUNGEN:") or line_stripped == "VERBINDUNGEN":
+            current_section = "connections"
+            continue
+        elif line_stripped.startswith("ZUSAMMENFASSUNG:") or line_stripped == "ZUSAMMENFASSUNG":
             current_section = "summary"
             continue
-        elif line_stripped.startswith("KEY INSIGHTS:"):
+        elif line_stripped.startswith("KEY INSIGHTS:") or line_stripped == "KEY INSIGHTS":
             current_section = "insights"
             continue
-        elif line_stripped.startswith("TOP TOPICS:"):
+        elif line_stripped.startswith("TOP TOPICS:") or line_stripped == "TOP TOPICS":
             current_section = "topics"
             continue
+        # Fallback for old format
+        elif line_stripped.startswith("SUMMARY:"):
+            current_section = "summary"
+            continue
 
-        if current_section == "summary" and line_stripped:
+        # Collect content based on current section
+        if current_section == "tldr" and line_stripped:
+            tldr_lines.append(line_stripped)
+        elif current_section == "clusters" and line_stripped:
+            cluster_lines.append(line_stripped)
+        elif current_section == "connections" and line_stripped.startswith("-"):
+            connection_lines.append(line_stripped[1:].strip())
+        elif current_section == "summary" and line_stripped:
             summary_lines.append(line_stripped)
         elif current_section == "insights" and line_stripped.startswith("-"):
             insight = line_stripped[1:].strip()
@@ -259,8 +359,29 @@ def _parse_weekly_summary_response(content: str) -> dict:
             topics = [t.strip() for t in line_stripped.split(",") if t.strip()]
             result["top_topics"].extend(topics)
 
+    # Process TL;DR
+    result["tldr"] = " ".join(tldr_lines)[:500] if tldr_lines else ""
+
+    # Process summary
     result["summary"] = "\n\n".join(summary_lines)
-    result["top_topics"] = result["top_topics"][:10]  # Limit to 10
-    result["key_insights"] = result["key_insights"][:5]  # Limit to 5
+
+    # Parse topic clusters - format: **Name** (X Artikel): Beschreibung
+    cluster_pattern = r"\*\*(.+?)\*\*\s*\((\d+)\s*Artikel\):\s*(.+)"
+    for line in cluster_lines:
+        match = re.match(cluster_pattern, line)
+        if match:
+            result["topic_clusters"].append({
+                "name": match.group(1).strip(),
+                "article_count": int(match.group(2)),
+                "description": match.group(3).strip(),
+            })
+
+    # Process connections
+    result["connections"] = connection_lines[:10]  # Limit to 10
+
+    # Limits
+    result["top_topics"] = result["top_topics"][:10]
+    result["key_insights"] = result["key_insights"][:5]
+    result["topic_clusters"] = result["topic_clusters"][:8]
 
     return result

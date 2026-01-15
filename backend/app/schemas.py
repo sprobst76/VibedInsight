@@ -145,13 +145,24 @@ class ContentItemWithRelationsResponse(ContentItemResponse):
 
 
 # Weekly Summary schemas
+class TopicCluster(BaseModel):
+    """A cluster of articles grouped by topic."""
+
+    name: str
+    article_count: int
+    description: str
+
+
 class WeeklySummaryResponse(BaseModel):
     id: int
     week_start: datetime
     week_end: datetime
+    tldr: str | None  # 1-2 sentence highlight
     summary: str | None
     key_insights: list[str]  # Parsed from JSON
     top_topics: list[str]  # Parsed from JSON
+    topic_clusters: list[TopicCluster]  # Parsed from JSON
+    connections: list[str]  # Parsed from JSON
     items_count: int
     items_processed: int
     created_at: datetime

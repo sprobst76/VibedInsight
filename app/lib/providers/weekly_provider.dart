@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/content_item.dart';
+import '../services/notification_service.dart';
 import 'api_provider.dart';
 
 class WeeklyState {
@@ -62,12 +63,20 @@ class WeeklyNotifier extends StateNotifier<WeeklyState> {
     }
   }
 
-  Future<void> generateCurrentWeekSummary() async {
+  Future<void> generateCurrentWeekSummary({bool showNotification = true}) async {
     state = state.copyWith(isGenerating: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
       final summary = await apiClient.generateCurrentWeekSummary();
       state = state.copyWith(currentWeek: summary, isGenerating: false);
+
+      // Show notification if TL;DR is available
+      if (showNotification && summary.hasTldr) {
+        await NotificationService().showWeeklySummaryReady(
+          tldr: summary.tldr!,
+          weekId: summary.id,
+        );
+      }
     } catch (e) {
       state = state.copyWith(isGenerating: false, error: e.toString());
     }

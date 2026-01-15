@@ -145,13 +145,17 @@ class WeeklySummary(Base):
     __tablename__ = "weekly_summaries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     week_start: Mapped[datetime] = mapped_column(DateTime, index=True)
     week_end: Mapped[datetime] = mapped_column(DateTime)
 
-    # Summary content
+    # Summary content - enhanced with topic clustering
+    tldr: Mapped[str | None] = mapped_column(Text, nullable=True)  # 1-2 sentence summary
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_insights: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
     top_topics: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
+    topic_clusters: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
+    connections: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
 
     # Stats
     items_count: Mapped[int] = mapped_column(Integer, default=0)

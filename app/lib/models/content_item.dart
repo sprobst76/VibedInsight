@@ -317,13 +317,36 @@ class PaginatedItems {
   }
 }
 
+class TopicCluster {
+  final String name;
+  final int articleCount;
+  final String description;
+
+  TopicCluster({
+    required this.name,
+    required this.articleCount,
+    required this.description,
+  });
+
+  factory TopicCluster.fromJson(Map<String, dynamic> json) {
+    return TopicCluster(
+      name: json['name'] as String,
+      articleCount: json['article_count'] as int,
+      description: json['description'] as String,
+    );
+  }
+}
+
 class WeeklySummary {
   final int id;
   final DateTime weekStart;
   final DateTime weekEnd;
+  final String? tldr;
   final String? summary;
   final List<String> keyInsights;
   final List<String> topTopics;
+  final List<TopicCluster> topicClusters;
+  final List<String> connections;
   final int itemsCount;
   final int itemsProcessed;
   final DateTime createdAt;
@@ -333,9 +356,12 @@ class WeeklySummary {
     required this.id,
     required this.weekStart,
     required this.weekEnd,
+    this.tldr,
     this.summary,
     this.keyInsights = const [],
     this.topTopics = const [],
+    this.topicClusters = const [],
+    this.connections = const [],
     required this.itemsCount,
     required this.itemsProcessed,
     required this.createdAt,
@@ -347,12 +373,21 @@ class WeeklySummary {
       id: json['id'] as int,
       weekStart: DateTime.parse(json['week_start'] as String),
       weekEnd: DateTime.parse(json['week_end'] as String),
+      tldr: json['tldr'] as String?,
       summary: json['summary'] as String?,
       keyInsights: (json['key_insights'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
       topTopics: (json['top_topics'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      topicClusters: (json['topic_clusters'] as List<dynamic>?)
+              ?.map((e) => TopicCluster.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      connections: (json['connections'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -366,6 +401,9 @@ class WeeklySummary {
   }
 
   bool get hasSummary => summary != null && summary!.isNotEmpty;
+  bool get hasTldr => tldr != null && tldr!.isNotEmpty;
+  bool get hasTopicClusters => topicClusters.isNotEmpty;
+  bool get hasConnections => connections.isNotEmpty;
 
   String get weekLabel {
     final startDay = weekStart.day;
