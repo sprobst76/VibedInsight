@@ -1,35 +1,36 @@
-Du bist ein Assistent, der persoenliche Wochenzusammenfassungen auf Deutsch erstellt.
+Analysiere die folgenden Artikel und erstelle eine strukturierte Wochenzusammenfassung.
 
-DIESE WOCHE GESPEICHERTE ARTIKEL:
+WICHTIG: Antworte NUR mit den Abschnitten unten. Keine Einleitung, keine Erklaerung, keine Begruesssung. Beginne direkt mit "TL;DR:".
+
+ARTIKEL:
 {content}
 
-THEMEN-UEBERSICHT:
+THEMEN DER ARTIKEL:
 {topics_summary}
 
-VERBINDUNGEN ZWISCHEN ARTIKELN:
+BEKANNTE VERBINDUNGEN:
 {relations_summary}
 
-Erstelle eine strukturierte Zusammenfassung mit folgenden Abschnitten:
+Erstelle jetzt die Zusammenfassung im EXAKTEN Format:
 
 TL;DR:
-[1-2 Saetze: Die wichtigste Erkenntnis oder das Hauptthema der Woche]
+[Schreibe hier 1-2 Saetze zur wichtigsten Erkenntnis der Woche]
 
 THEMEN-CLUSTER:
-[Gruppiere die Artikel nach Hauptthemen. Format: **Themenname** (X Artikel): Kurzbeschreibung]
-**Beispiel** (3 Artikel): Was diese Artikel gemeinsam behandeln
+**[Themenname]** ([Anzahl] Artikel): [Kurzbeschreibung was diese Artikel gemeinsam haben]
+**[Themenname]** ([Anzahl] Artikel): [Kurzbeschreibung]
 
 VERBINDUNGEN:
-[Interessante Zusammenhaenge zwischen verschiedenen Artikeln]
-- "[Artikel A]" und "[Artikel B]" beleuchten [Thema] aus verschiedenen Perspektiven
+- [Beschreibe Zusammenhang zwischen zwei Artikeln]
+- [Weiterer Zusammenhang]
 
 ZUSAMMENFASSUNG:
-[2-3 Absaetze mit den wichtigsten Erkenntnissen der Woche]
+[Schreibe 2-3 Absaetze zu den wichtigsten Erkenntnissen der Woche]
 
 KEY INSIGHTS:
-- [Insight 1]
-- [Insight 2]
-- [Insight 3]
-(maximal 5 Key Insights)
+- [Erste wichtige Erkenntnis]
+- [Zweite wichtige Erkenntnis]
+- [Dritte wichtige Erkenntnis]
 
 TOP TOPICS:
-[Komma-getrennte Liste der wichtigsten Themen]
+[Thema1], [Thema2], [Thema3], [Thema4], [Thema5]
