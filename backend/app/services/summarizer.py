@@ -281,7 +281,10 @@ async def generate_weekly_summary(
 
         # Parse the response
         response_content = response["message"]["content"]
-        return _parse_weekly_summary_response(response_content)
+        logger.info(f"Raw LLM response (first 500 chars): {response_content[:500]}")
+        result = _parse_weekly_summary_response(response_content)
+        logger.info(f"Parsed result keys: {list(result.keys())}, tldr length: {len(result.get('tldr', ''))}, summary length: {len(result.get('summary', ''))}")
+        return result
 
     except TimeoutError:
         logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")

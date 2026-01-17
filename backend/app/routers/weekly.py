@@ -338,10 +338,14 @@ async def generate_current_week_summary(
 
     # Generate summary
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Generating weekly summary with {len(items_content)} items")
         result = await generate_weekly_summary(items_content, topics_by_item, relations)
+        logger.info(f"Result: tldr={len(result.get('tldr', ''))} summary={len(result.get('summary', ''))}")
 
-        summary.tldr = result.get("tldr", "")
-        summary.summary = result["summary"]
+        summary.tldr = result.get("tldr", "") or "No TL;DR generated"
+        summary.summary = result["summary"] or f"Empty result from LLM. Processed {len(items_content)} items."
         summary.key_insights = json.dumps(result["key_insights"])
         summary.top_topics = json.dumps(result["top_topics"])
         summary.topic_clusters = json.dumps(result.get("topic_clusters", []))
