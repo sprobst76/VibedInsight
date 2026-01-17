@@ -352,9 +352,13 @@ async def generate_current_week_summary(
         await db.commit()
         await db.refresh(summary)
 
-    except Exception:
-        # Log but don't fail - return what we have
-        pass
+    except Exception as e:
+        # Log the error and store in summary for debugging
+        import logging
+        logging.getLogger(__name__).error(f"Weekly summary generation failed: {e}")
+        summary.summary = f"Generation failed: {str(e)}"
+        await db.commit()
+        await db.refresh(summary)
 
     return _summary_to_response(summary)
 
