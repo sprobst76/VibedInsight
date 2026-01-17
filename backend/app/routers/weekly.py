@@ -293,6 +293,8 @@ async def generate_current_week_summary(
     items = [ui.content for ui in user_items if ui.content.status == ProcessingStatus.COMPLETED]
 
     if not items:
+        summary.summary = f"DEBUG: No completed items found. user_items={len(user_items)}"
+        await db.commit()
         return _summary_to_response(summary)
 
     items_content = [
@@ -302,6 +304,8 @@ async def generate_current_week_summary(
     ]
 
     if not items_content:
+        summary.summary = f"DEBUG: No items with summaries. items={len(items)}"
+        await db.commit()
         return _summary_to_response(summary)
 
     # Build topics by item
