@@ -22,7 +22,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/Berlin}
       - POSTGRES_USER=vibedinsight
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?ENV_VAR_REQUIRED}
       - POSTGRES_DB=vibedinsight
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
