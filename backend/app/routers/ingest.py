@@ -35,9 +35,10 @@ from app.models.content import (
 from app.models.user import User, UserItem
 from app.schemas import (
     ContentItemResponse,
-    IngestContentResponse,
     IngestTextRequest,
     IngestURLRequest,
+    TopicResponse,
+    UserItemResponse,
 )
 from app.services.extractor import extract_from_url
 from app.services.summarizer import extract_topics, generate_summary
@@ -225,6 +226,34 @@ async def _process_item_async(item_id: uuid.UUID, db_url: str):
         logger.info(f"Item {item_id}: engine disposed")
 
 
+async def _load_user_item_response(user_item_id: int, db: AsyncSession) -> UserItemResponse:
+    """Load a UserItem with its content and topics, then build the response."""
+    query = (
+        select(UserItem)
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
+        .where(UserItem.id == user_item_id)
+    )
+    result = await db.execute(query)
+    ui = result.scalar_one()
+    content = ui.content
+    return UserItemResponse(
+        id=ui.id,
+        content_type=content.content_type,
+        status=content.status,
+        url=content.url,
+        title=content.title,
+        source=content.source,
+        summary=content.summary,
+        is_favorite=ui.is_favorite,
+        is_read=ui.is_read,
+        is_archived=ui.is_archived,
+        created_at=ui.created_at,
+        updated_at=ui.updated_at,
+        processed_at=content.processed_at,
+        topics=[TopicResponse.model_validate(t) for t in content.topics],
+    )
+
+
 def _handle_task_result(task: asyncio.Task, item_id: uuid.UUID):
     """Callback to handle task completion and log any exceptions."""
     try:
@@ -244,7 +273,7 @@ async def schedule_processing(item_id: uuid.UUID, db_url: str):
     logger.info(f"Scheduled background processing for item {item_id}")
 
 
-@router.post("/url", response_model=IngestContentResponse)
+@router.post("/url", response_model=UserItemResponse)
 async def ingest_url(
     request: IngestURLRequest,
     user: User = Depends(get_dev_or_current_user),
@@ -279,25 +308,17 @@ async def ingest_url(
 
         if existing_user_item:
             # User already has this content
-            return IngestContentResponse(
-                content_id=existing.id,
-                title=existing.title,
-                status=existing.status,
-                is_duplicate=True,
-            )
+            return await _load_user_item_response(existing_user_item.id, db)
 
         # Create user_item entry for existing content
         existing.ref_count += 1
         user_item = UserItem(user_id=user.id, content_id=existing.id)
         db.add(user_item)
+        await db.flush()  # Assign user_item.id before commit
+        user_item_id = user_item.id
         await db.commit()
 
-        return IngestContentResponse(
-            content_id=existing.id,
-            title=existing.title,
-            status=existing.status,
-            is_duplicate=True,
-        )
+        return await _load_user_item_response(user_item_id, db)
 
     # Extract content from URL
     try:
@@ -326,24 +347,20 @@ async def ingest_url(
     # Create user_item entry
     user_item = UserItem(user_id=user.id, content_id=item.id)
     db.add(user_item)
+    await db.flush()  # Assign user_item.id
+    user_item_id = user_item.id
 
     await db.commit()
-    await db.refresh(item)
 
     # Schedule background processing
     from app.config import settings
 
     await schedule_processing(item.id, settings.database_url)
 
-    return IngestContentResponse(
-        content_id=item.id,
-        title=item.title,
-        status=item.status,
-        is_duplicate=False,
-    )
+    return await _load_user_item_response(user_item_id, db)
 
 
-@router.post("/text", response_model=IngestContentResponse)
+@router.post("/text", response_model=UserItemResponse)
 async def ingest_text(
     request: IngestTextRequest,
     user: User = Depends(get_dev_or_current_user),
@@ -371,21 +388,17 @@ async def ingest_text(
     # Create user_item entry
     user_item = UserItem(user_id=user.id, content_id=item.id)
     db.add(user_item)
+    await db.flush()  # Assign user_item.id
+    user_item_id = user_item.id
 
     await db.commit()
-    await db.refresh(item)
 
     # Schedule background processing
     from app.config import settings
 
     await schedule_processing(item.id, settings.database_url)
 
-    return IngestContentResponse(
-        content_id=item.id,
-        title=item.title,
-        status=item.status,
-        is_duplicate=False,
-    )
+    return await _load_user_item_response(user_item_id, db)
 
 
 @router.get("/{content_id}", response_model=ContentItemResponse)
