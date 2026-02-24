@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
@@ -97,6 +99,9 @@ class ItemsState {
 class ItemsNotifier extends StateNotifier<ItemsState> {
   final ItemsRepository _repository;
   final ApiClient _apiClient;
+  Timer? _pollTimer;
+
+  static const _pollInterval = Duration(seconds: 5);
 
   ItemsNotifier(this._repository, this._apiClient) : super(ItemsState()) {
     // Listen to online status changes
@@ -107,6 +112,61 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
         _syncPendingActions();
       }
     });
+  }
+
+  bool get _hasPendingOrProcessingItems => state.items.any(
+        (item) =>
+            item.status == ProcessingStatus.pending ||
+            item.status == ProcessingStatus.processing,
+      );
+
+  void _startPollingIfNeeded() {
+    if (_hasPendingOrProcessingItems) {
+      _pollTimer ??= Timer.periodic(_pollInterval, (_) => _pollPendingItems());
+    }
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  Future<void> _pollPendingItems() async {
+    final pendingIds = state.items
+        .where(
+          (item) =>
+              item.status == ProcessingStatus.pending ||
+              item.status == ProcessingStatus.processing,
+        )
+        .map((item) => item.id)
+        .toList();
+
+    if (pendingIds.isEmpty) {
+      _stopPolling();
+      return;
+    }
+
+    for (final id in pendingIds) {
+      try {
+        final updated = await _apiClient.getItem(id);
+        if (updated.status != ProcessingStatus.pending &&
+            updated.status != ProcessingStatus.processing) {
+          updateItem(updated);
+        }
+      } catch (_) {
+        // Ignore individual fetch errors during polling
+      }
+    }
+
+    if (!_hasPendingOrProcessingItems) {
+      _stopPolling();
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopPolling();
+    super.dispose();
   }
 
   Future<void> _syncPendingActions() async {
@@ -153,6 +213,7 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
         isOffline: result.isFromCache,
         hasPendingActions: hasPending,
       );
+      _startPollingIfNeeded();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -411,6 +472,7 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
         return item.id == updatedItem.id ? updatedItem : item;
       }).toList(),
     );
+    _startPollingIfNeeded();
   }
 
   // Selection Mode
