@@ -2,6 +2,8 @@
 # Location: /srv/vibedinsight/docker-compose.yml
 # Nutzt bestehendes ai-lab Netzwerk für Ollama + Traefik
 
+name: vibedinsight
+
 networks:
   ai-lab_ai-lab:
     external: true

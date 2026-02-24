@@ -94,7 +94,6 @@ update() {
     log_info "Rebuilding API container..."
     docker compose build --no-cache api
     docker compose up -d api
-    docker compose restart api
 
     # Cleanup old images
     log_info "Cleaning up old images..."
