@@ -108,6 +108,14 @@ class ApiClient {
     return ContentItem.fromJson(response.data);
   }
 
+  Future<ContentItem> setRating(int id, int rating) async {
+    final response = await _dio.post(
+      '/items/$id/rating',
+      data: {'rating': rating},
+    );
+    return ContentItem.fromJson(response.data);
+  }
+
   Future<void> deleteItem(int id) async {
     await _dio.delete('/items/$id');
   }

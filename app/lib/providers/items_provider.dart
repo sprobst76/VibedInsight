@@ -400,6 +400,29 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     }
   }
 
+  Future<void> setRating(int id, int rating) async {
+    final originalRating = state.items.firstWhere((item) => item.id == id).rating;
+
+    // Optimistic update
+    state = state.copyWith(
+      items: state.items.map((item) {
+        return item.id == id ? item.copyWith(rating: rating) : item;
+      }).toList(),
+    );
+
+    try {
+      await _apiClient.setRating(id, rating);
+    } catch (e) {
+      // Revert on error
+      state = state.copyWith(
+        items: state.items.map((item) {
+          return item.id == id ? item.copyWith(rating: originalRating) : item;
+        }).toList(),
+        error: e.toString(),
+      );
+    }
+  }
+
   Future<ContentItem?> ingestUrl(String url) async {
     try {
       final result = await _repository.ingestUrl(url);

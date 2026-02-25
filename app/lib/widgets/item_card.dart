@@ -10,6 +10,7 @@ class ItemCard extends StatelessWidget {
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onToggleRead;
   final VoidCallback? onLongPress;
+  final Function(int rating)? onSetRating;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onToggleSelection;
@@ -22,6 +23,7 @@ class ItemCard extends StatelessWidget {
     this.onToggleFavorite,
     this.onToggleRead,
     this.onLongPress,
+    this.onSetRating,
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onToggleSelection,
@@ -151,6 +153,29 @@ class ItemCard extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                     );
                   }).toList(),
+                ),
+              ],
+
+              // Star rating
+              if (!isSelectionMode && onSetRating != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: List.generate(5, (index) {
+                    final starValue = index + 1;
+                    return GestureDetector(
+                      onTap: () => onSetRating!(item.rating == starValue ? 0 : starValue),
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 2),
+                        child: Icon(
+                          starValue <= item.rating ? Icons.star : Icons.star_border,
+                          size: 18,
+                          color: starValue <= item.rating
+                              ? Colors.amber
+                              : Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ],

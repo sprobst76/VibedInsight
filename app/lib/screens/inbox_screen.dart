@@ -646,6 +646,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           isSelected: state.isSelected(item.id),
           onToggleSelection: () =>
               ref.read(itemsProvider.notifier).toggleSelection(item.id),
+          onSetRating: (rating) =>
+              ref.read(itemsProvider.notifier).setRating(item.id, rating),
         );
 
         // Disable swipe actions in selection mode

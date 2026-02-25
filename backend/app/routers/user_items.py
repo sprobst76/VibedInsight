@@ -107,6 +107,7 @@ def _build_user_item_response(user_item: UserItem) -> UserItemResponse:
         is_favorite=user_item.is_favorite,
         is_read=user_item.is_read,
         is_archived=user_item.is_archived,
+        rating=user_item.rating,
         created_at=user_item.created_at,
         updated_at=user_item.updated_at,
         processed_at=content.processed_at,
@@ -371,6 +372,36 @@ async def toggle_archive(
         raise HTTPException(status_code=404, detail="Item not found")
 
     user_item.is_archived = not user_item.is_archived
+    await db.commit()
+    await db.refresh(user_item)
+
+    return _build_user_item_response(user_item)
+
+
+class RatingRequest(BaseModel):
+    rating: int  # 0=unrated, 1-5=stars
+
+
+@router.post("/{item_id}/rating", response_model=UserItemResponse)
+async def set_rating(
+    item_id: int,
+    request: RatingRequest,
+    user: User = Depends(get_dev_or_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set rating (0-5) for an item. 0 means unrated."""
+    query = (
+        select(UserItem)
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
+        .where(UserItem.id == item_id, UserItem.user_id == user.id)
+    )
+    result = await db.execute(query)
+    user_item = result.scalar_one_or_none()
+
+    if not user_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    user_item.rating = max(0, min(5, request.rating))
     await db.commit()
     await db.refresh(user_item)
 

@@ -281,7 +281,7 @@ async def generate_weekly_summary(
 
         # Parse the response
         response_content = response["message"]["content"]
-        logger.info(f"Raw LLM response (first 500 chars): {response_content[:500]}")
+        logger.info(f"Raw LLM response (first 2000 chars): {response_content[:2000]}")
         result = _parse_weekly_summary_response(response_content)
         logger.info(f"Parsed result keys: {list(result.keys())}, tldr length: {len(result.get('tldr', ''))}, summary length: {len(result.get('summary', ''))}")
         return result
@@ -313,35 +313,39 @@ def _parse_weekly_summary_response(content: str) -> dict:
     cluster_lines = []
     connection_lines = []
 
+    # Helper to detect section headers (case-insensitive, flexible format)
+    def detect_section(line: str) -> str | None:
+        line_lower = line.lower().strip()
+        # Remove markdown formatting
+        line_clean = re.sub(r'^[#*]+\s*', '', line_lower).strip()
+        line_clean = re.sub(r'\*+$', '', line_clean).strip()
+
+        if 'tl;dr' in line_clean or 'tldr' in line_clean:
+            return "tldr"
+        elif 'themen-cluster' in line_clean or 'themencluster' in line_clean or 'topic cluster' in line_clean:
+            return "clusters"
+        elif 'verbindung' in line_clean or 'connection' in line_clean:
+            return "connections"
+        elif 'zusammenfassung' in line_clean or 'summary' in line_clean:
+            return "summary"
+        elif 'key insight' in line_clean or 'erkenntnisse' in line_clean:
+            return "insights"
+        elif 'top topic' in line_clean or 'hauptthemen' in line_clean:
+            return "topics"
+        return None
+
     for line in content.split("\n"):
         line_stripped = line.strip()
 
         # Detect section headers
-        if line_stripped.startswith("TL;DR:") or line_stripped == "TL;DR":
-            current_section = "tldr"
+        section = detect_section(line_stripped)
+        if section:
+            current_section = section
             # Handle inline content after colon
-            rest = line_stripped.replace("TL;DR:", "").replace("TL;DR", "").strip()
-            if rest:
-                tldr_lines.append(rest)
-            continue
-        elif line_stripped.startswith("THEMEN-CLUSTER:") or line_stripped == "THEMEN-CLUSTER":
-            current_section = "clusters"
-            continue
-        elif line_stripped.startswith("VERBINDUNGEN:") or line_stripped == "VERBINDUNGEN":
-            current_section = "connections"
-            continue
-        elif line_stripped.startswith("ZUSAMMENFASSUNG:") or line_stripped == "ZUSAMMENFASSUNG":
-            current_section = "summary"
-            continue
-        elif line_stripped.startswith("KEY INSIGHTS:") or line_stripped == "KEY INSIGHTS":
-            current_section = "insights"
-            continue
-        elif line_stripped.startswith("TOP TOPICS:") or line_stripped == "TOP TOPICS":
-            current_section = "topics"
-            continue
-        # Fallback for old format
-        elif line_stripped.startswith("SUMMARY:"):
-            current_section = "summary"
+            if ':' in line_stripped:
+                rest = line_stripped.split(':', 1)[1].strip()
+                if rest and current_section == "tldr":
+                    tldr_lines.append(rest)
             continue
 
         # Collect content based on current section
@@ -349,17 +353,21 @@ def _parse_weekly_summary_response(content: str) -> dict:
             tldr_lines.append(line_stripped)
         elif current_section == "clusters" and line_stripped:
             cluster_lines.append(line_stripped)
-        elif current_section == "connections" and line_stripped.startswith("-"):
-            connection_lines.append(line_stripped[1:].strip())
+        elif current_section == "connections" and line_stripped:
+            # Accept lines with or without leading dash
+            conn = line_stripped.lstrip('-•*').strip()
+            if conn:
+                connection_lines.append(conn)
         elif current_section == "summary" and line_stripped:
             summary_lines.append(line_stripped)
-        elif current_section == "insights" and line_stripped.startswith("-"):
-            insight = line_stripped[1:].strip()
-            if insight:
+        elif current_section == "insights" and line_stripped:
+            # Accept lines with or without leading dash
+            insight = line_stripped.lstrip('-•*').strip()
+            if insight and not insight.lower().startswith('key'):
                 result["key_insights"].append(insight)
         elif current_section == "topics" and line_stripped:
             # Parse comma-separated topics
-            topics = [t.strip() for t in line_stripped.split(",") if t.strip()]
+            topics = [t.strip().lstrip('-•*').strip() for t in line_stripped.split(",") if t.strip()]
             result["top_topics"].extend(topics)
 
     # Process TL;DR

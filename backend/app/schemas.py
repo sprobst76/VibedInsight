@@ -379,6 +379,7 @@ class UserItemResponse(BaseModel):
     is_favorite: bool
     is_read: bool
     is_archived: bool
+    rating: int = 0
     created_at: datetime
     updated_at: datetime | None
     processed_at: datetime | None

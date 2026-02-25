@@ -97,6 +97,7 @@ class ContentItem {
   final bool isFavorite;
   final bool isRead;
   final bool isArchived;
+  final int rating;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? processedAt;
@@ -114,6 +115,7 @@ class ContentItem {
     this.isFavorite = false,
     this.isRead = false,
     this.isArchived = false,
+    this.rating = 0,
     required this.createdAt,
     this.updatedAt,
     this.processedAt,
@@ -133,6 +135,7 @@ class ContentItem {
       isFavorite: json['is_favorite'] as bool? ?? false,
       isRead: json['is_read'] as bool? ?? false,
       isArchived: json['is_archived'] as bool? ?? false,
+      rating: json['rating'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
@@ -147,7 +150,7 @@ class ContentItem {
     );
   }
 
-  ContentItem copyWith({bool? isFavorite, bool? isRead, bool? isArchived}) {
+  ContentItem copyWith({bool? isFavorite, bool? isRead, bool? isArchived, int? rating}) {
     return ContentItem(
       id: id,
       contentType: contentType,
@@ -160,6 +163,7 @@ class ContentItem {
       isFavorite: isFavorite ?? this.isFavorite,
       isRead: isRead ?? this.isRead,
       isArchived: isArchived ?? this.isArchived,
+      rating: rating ?? this.rating,
       createdAt: createdAt,
       updatedAt: updatedAt,
       processedAt: processedAt,
@@ -248,6 +252,7 @@ class ContentItemWithRelations extends ContentItem {
     super.isFavorite,
     super.isRead,
     super.isArchived,
+    super.rating,
     required super.createdAt,
     super.updatedAt,
     super.processedAt,
@@ -268,6 +273,7 @@ class ContentItemWithRelations extends ContentItem {
       isFavorite: json['is_favorite'] as bool? ?? false,
       isRead: json['is_read'] as bool? ?? false,
       isArchived: json['is_archived'] as bool? ?? false,
+      rating: json['rating'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)

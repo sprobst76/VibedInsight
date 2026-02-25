@@ -189,6 +189,7 @@ class UserItem(Base):
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    rating: Mapped[int] = mapped_column(Integer, default=0)  # 0=unrated, 1-5=stars
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
