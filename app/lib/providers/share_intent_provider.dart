@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -60,7 +61,9 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
         }
       },
       onError: (err) {
-        // Handle errors silently
+        debugPrint('ShareIntent stream error: $err');
+        final notificationService = _ref.read(notificationServiceProvider);
+        notificationService.showProcessingFailed('Share Intent', err.toString());
       },
     );
   }

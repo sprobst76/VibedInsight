@@ -14,6 +14,35 @@ PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 # Timeout for Ollama requests (5 minutes for long texts)
 OLLAMA_TIMEOUT = 300.0
 
+# Retry config
+MAX_RETRIES = 2
+RETRY_BACKOFF = [2.0, 5.0]  # seconds between attempts
+
+
+async def _ollama_chat_with_retry(
+    client: ollama.AsyncClient,
+    model: str,
+    messages: list[dict],
+    timeout: float = OLLAMA_TIMEOUT,
+) -> dict:
+    """Call Ollama chat with automatic retry on failure."""
+    last_error: Exception | None = None
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            return await asyncio.wait_for(
+                client.chat(model=model, messages=messages),
+                timeout=timeout,
+            )
+        except Exception as e:
+            last_error = e
+            if attempt < MAX_RETRIES:
+                wait = RETRY_BACKOFF[attempt]
+                logger.warning(f"Ollama attempt {attempt + 1} failed: {e}. Retrying in {wait}s...")
+                await asyncio.sleep(wait)
+            else:
+                logger.error(f"Ollama failed after {MAX_RETRIES + 1} attempts: {e}")
+    raise last_error  # type: ignore[misc]
+
 
 def load_prompt(name: str) -> str:
     """Load a prompt template from file."""
@@ -115,22 +144,13 @@ async def generate_summary(text: str, language: str = "auto") -> str:
         timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
     )
 
-    try:
-        response = await asyncio.wait_for(
-            client.chat(
-                model=settings.ollama_model,
-                messages=[{"role": "user", "content": prompt}],
-            ),
-            timeout=OLLAMA_TIMEOUT,
-        )
-        logger.info("Ollama summary response received")
-        return response["message"]["content"]
-    except TimeoutError:
-        logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
-        raise
-    except Exception as e:
-        logger.error(f"Ollama request failed: {e}")
-        raise
+    response = await _ollama_chat_with_retry(
+        client,
+        model=settings.ollama_model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    logger.info("Ollama summary response received")
+    return response["message"]["content"]
 
 
 async def extract_topics(text: str, existing_topics: list[str] | None = None) -> list[str]:
@@ -149,28 +169,16 @@ async def extract_topics(text: str, existing_topics: list[str] | None = None) ->
         timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
     )
 
-    try:
-        response = await asyncio.wait_for(
-            client.chat(
-                model=settings.ollama_model,
-                messages=[{"role": "user", "content": prompt}],
-            ),
-            timeout=OLLAMA_TIMEOUT,
-        )
-        logger.info("Ollama topics response received")
+    response = await _ollama_chat_with_retry(
+        client,
+        model=settings.ollama_model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    logger.info("Ollama topics response received")
 
-        # Parse response - handle various LLM output formats
-        content = response["message"]["content"]
-        topics = _parse_topics_response(content)
-
-        # Clean up and deduplicate
-        return list(set(topics))[:10]  # Max 10 topics
-    except TimeoutError:
-        logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
-        raise
-    except Exception as e:
-        logger.error(f"Ollama request failed: {e}")
-        raise
+    content = response["message"]["content"]
+    topics = _parse_topics_response(content)
+    return list(set(topics))[:10]  # Max 10 topics
 
 
 def _build_topics_summary(topics_by_item: dict[str, list[str]]) -> str:
@@ -269,29 +277,18 @@ async def generate_weekly_summary(
         timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
     )
 
-    try:
-        response = await asyncio.wait_for(
-            client.chat(
-                model=settings.ollama_model,
-                messages=[{"role": "user", "content": prompt}],
-            ),
-            timeout=OLLAMA_TIMEOUT,
-        )
-        logger.info("Weekly summary response received")
+    response = await _ollama_chat_with_retry(
+        client,
+        model=settings.ollama_model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    logger.info("Weekly summary response received")
 
-        # Parse the response
-        response_content = response["message"]["content"]
-        logger.info(f"Raw LLM response (first 2000 chars): {response_content[:2000]}")
-        result = _parse_weekly_summary_response(response_content)
-        logger.info(f"Parsed result keys: {list(result.keys())}, tldr length: {len(result.get('tldr', ''))}, summary length: {len(result.get('summary', ''))}")
-        return result
-
-    except TimeoutError:
-        logger.error(f"Ollama request timed out after {OLLAMA_TIMEOUT}s")
-        raise
-    except Exception as e:
-        logger.error(f"Ollama request failed: {e}")
-        raise
+    response_content = response["message"]["content"]
+    logger.info(f"Raw LLM response (first 2000 chars): {response_content[:2000]}")
+    result = _parse_weekly_summary_response(response_content)
+    logger.info(f"Parsed result keys: {list(result.keys())}, tldr length: {len(result.get('tldr', ''))}, summary length: {len(result.get('summary', ''))}")
+    return result
 
 
 def _parse_weekly_summary_response(content: str) -> dict:

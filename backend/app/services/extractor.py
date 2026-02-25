@@ -9,7 +9,9 @@ async def extract_from_url(url: str) -> dict:
     Extract article content from a URL.
     Returns title, text, and source domain.
     """
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(60.0, connect=30.0), follow_redirects=True
+    ) as client:
         response = await client.get(
             url,
             headers={
