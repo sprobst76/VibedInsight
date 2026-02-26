@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -132,6 +132,7 @@ async def get_weekly_summary(
 async def generate_summary(
     summary_id: int,
     background_tasks: BackgroundTasks,
+    topic_id: int | None = Query(None, description="Filter by topic ID"),
     user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -165,6 +166,12 @@ async def generate_summary(
 
     # Filter to completed items
     items = [ui.content for ui in user_items if ui.content.status == ProcessingStatus.COMPLETED]
+
+    # Optional topic filter
+    if topic_id is not None:
+        items = [i for i in items if any(t.id == topic_id for t in i.topics)]
+        if not items:
+            raise HTTPException(status_code=400, detail="Keine abgeschlossenen Items mit diesem Topic gefunden")
 
     if not items:
         raise HTTPException(status_code=400, detail="No processed items found for this week")
@@ -235,6 +242,7 @@ async def generate_summary(
 
 @router.post("/generate-current", response_model=WeeklySummaryResponse)
 async def generate_current_week_summary(
+    topic_id: int | None = Query(None, description="Filter by topic ID"),
     user: User = Depends(get_dev_or_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -291,6 +299,10 @@ async def generate_current_week_summary(
 
     # Filter to completed items
     items = [ui.content for ui in user_items if ui.content.status == ProcessingStatus.COMPLETED]
+
+    # Optional topic filter
+    if topic_id is not None:
+        items = [i for i in items if any(t.id == topic_id for t in i.topics)]
 
     if not items:
         summary.summary = f"DEBUG: No completed items found. user_items={len(user_items)}"

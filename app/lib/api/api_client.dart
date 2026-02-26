@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../config/api_config.dart';
 import '../models/content_item.dart';
@@ -220,14 +221,28 @@ class ApiClient {
     return WeeklySummary.fromJson(response.data);
   }
 
-  Future<WeeklySummary> generateWeeklySummary(int id) async {
-    final response = await _dio.post('/weekly/$id/generate');
+  Future<WeeklySummary> generateWeeklySummary(int id, {int? topicId}) async {
+    final response = await _dio.post(
+      '/weekly/$id/generate',
+      queryParameters: topicId != null ? {'topic_id': topicId} : null,
+    );
     return WeeklySummary.fromJson(response.data);
   }
 
-  Future<WeeklySummary> generateCurrentWeekSummary() async {
-    final response = await _dio.post('/weekly/generate-current');
+  Future<WeeklySummary> generateCurrentWeekSummary({int? topicId}) async {
+    final response = await _dio.post(
+      '/weekly/generate-current',
+      queryParameters: topicId != null ? {'topic_id': topicId} : null,
+    );
     return WeeklySummary.fromJson(response.data);
+  }
+
+  Future<String> downloadExport() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final date = DateTime.now().toIso8601String().substring(0, 10);
+    final savePath = '${dir.path}/vibedinsight-export-$date.zip';
+    await _dio.download('/export/markdown', savePath);
+    return savePath;
   }
 
   // Graph Data

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/content_item.dart';
+import '../providers/topics_provider.dart';
 import '../providers/weekly_provider.dart';
 
 class WeeklyScreen extends ConsumerStatefulWidget {
@@ -26,11 +27,31 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(weeklyProvider);
+    final topicsAsync = ref.watch(topicsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Wochenzusammenfassung'),
         actions: [
+          // Topic filter button
+          topicsAsync.when(
+            data: (topics) => topics.isEmpty
+                ? const SizedBox.shrink()
+                : IconButton(
+                    icon: Icon(
+                      Icons.filter_list,
+                      color: state.hasTopicFilter
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    tooltip: state.hasTopicFilter
+                        ? 'Filter: ${state.selectedTopicName}'
+                        : 'Nach Topic filtern',
+                    onPressed: () => _showTopicFilterSheet(context, topics, state),
+                  ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
           if (state.currentWeek?.hasSummary == true)
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -42,6 +63,52 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
         ],
       ),
       body: _buildBody(state),
+    );
+  }
+
+  void _showTopicFilterSheet(
+    BuildContext context,
+    List<Topic> topics,
+    WeeklyState state,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Topic-Filter',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            RadioListTile<int?>(
+              title: const Text('Alle Topics'),
+              value: null,
+              groupValue: state.selectedTopicId,
+              onChanged: (_) {
+                ref.read(weeklyProvider.notifier).setTopicFilter(null, null);
+                Navigator.pop(ctx);
+              },
+            ),
+            ...topics.map((topic) => RadioListTile<int?>(
+                  title: Text(topic.name),
+                  value: topic.id,
+                  groupValue: state.selectedTopicId,
+                  onChanged: (_) {
+                    ref
+                        .read(weeklyProvider.notifier)
+                        .setTopicFilter(topic.id, topic.name);
+                    Navigator.pop(ctx);
+                  },
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 
@@ -82,6 +149,44 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(summary),
+            if (state.hasTopicFilter) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.filter_list,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Gefiltert: ${state.selectedTopicName}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSecondaryContainer,
+                            ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => ref
+                          .read(weeklyProvider.notifier)
+                          .setTopicFilter(null, null),
+                      child: Icon(
+                        Icons.close,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             if (summary.hasSummary) ...[
               // TL;DR section - most prominent

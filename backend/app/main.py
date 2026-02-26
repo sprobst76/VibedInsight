@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import admin, auth, ingest, items, topics, user_items, vault, weekly
+from app.routers import admin, auth, export, ingest, items, topics, user_items, vault, weekly
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.include_router(ingest.router, prefix="/ingest", tags=["Ingest"])
 app.include_router(topics.router, prefix="/topics", tags=["Topics"])
 app.include_router(weekly.router, prefix="/weekly", tags=["Weekly Summary"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+app.include_router(export.router, prefix="/export", tags=["Export"])
 
 
 @app.get("/health")

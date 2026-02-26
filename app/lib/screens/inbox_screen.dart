@@ -6,6 +6,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/content_item.dart';
+import '../providers/api_provider.dart';
 import '../providers/items_provider.dart';
 import '../providers/share_intent_provider.dart';
 import '../providers/topics_provider.dart';
@@ -26,6 +27,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   bool _isSearching = false;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -251,8 +253,59 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           tooltip: 'Weekly Summary',
           onPressed: () => context.push('/weekly'),
         ),
+        PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'export') _exportMarkdown();
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: 'export',
+              enabled: !_isExporting,
+              child: Row(
+                children: [
+                  _isExporting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.download, size: 20),
+                  const SizedBox(width: 12),
+                  const Text('Export (Markdown)'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     );
+  }
+
+  Future<void> _exportMarkdown() async {
+    setState(() => _isExporting = true);
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final path = await apiClient.downloadExport();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export gespeichert: $path'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export fehlgeschlagen: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   AppBar _buildSelectionAppBar(ItemsState state) {

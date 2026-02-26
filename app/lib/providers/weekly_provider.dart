@@ -10,6 +10,8 @@ class WeeklyState {
   final bool isLoading;
   final bool isGenerating;
   final String? error;
+  final int? selectedTopicId;
+  final String? selectedTopicName;
 
   WeeklyState({
     this.currentWeek,
@@ -17,6 +19,8 @@ class WeeklyState {
     this.isLoading = false,
     this.isGenerating = false,
     this.error,
+    this.selectedTopicId,
+    this.selectedTopicName,
   });
 
   WeeklyState copyWith({
@@ -25,6 +29,9 @@ class WeeklyState {
     bool? isLoading,
     bool? isGenerating,
     String? error,
+    int? selectedTopicId,
+    String? selectedTopicName,
+    bool clearTopicFilter = false,
   }) {
     return WeeklyState(
       currentWeek: currentWeek ?? this.currentWeek,
@@ -32,8 +39,12 @@ class WeeklyState {
       isLoading: isLoading ?? this.isLoading,
       isGenerating: isGenerating ?? this.isGenerating,
       error: error,
+      selectedTopicId: clearTopicFilter ? null : (selectedTopicId ?? this.selectedTopicId),
+      selectedTopicName: clearTopicFilter ? null : (selectedTopicName ?? this.selectedTopicName),
     );
   }
+
+  bool get hasTopicFilter => selectedTopicId != null;
 }
 
 class WeeklyNotifier extends StateNotifier<WeeklyState> {
@@ -63,11 +74,21 @@ class WeeklyNotifier extends StateNotifier<WeeklyState> {
     }
   }
 
+  void setTopicFilter(int? topicId, String? name) {
+    if (topicId == null) {
+      state = state.copyWith(clearTopicFilter: true);
+    } else {
+      state = state.copyWith(selectedTopicId: topicId, selectedTopicName: name);
+    }
+  }
+
   Future<void> generateCurrentWeekSummary({bool showNotification = true}) async {
     state = state.copyWith(isGenerating: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final summary = await apiClient.generateCurrentWeekSummary();
+      final summary = await apiClient.generateCurrentWeekSummary(
+        topicId: state.selectedTopicId,
+      );
       state = state.copyWith(currentWeek: summary, isGenerating: false);
 
       // Show notification if TL;DR is available
