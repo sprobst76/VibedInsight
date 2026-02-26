@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python*)", "Bash(pip*)", "Bash(uv*)", "Bash(pytest*)",
+      "Bash(alembic*)", "Bash(uvicorn*)", "Bash(node*)", "Bash(npm*)",
+      "Bash(git*)", "Bash(make*)", "Bash(docker*)",
+      "Bash(ls*)", "Bash(cat*)", "Bash(grep*)", "Bash(find*)",
+      "Bash(head*)", "Bash(tail*)", "Bash(mkdir*)", "Bash(cp*)", "Bash(mv*)",
+      "Bash(rm /home/spro/development/VibedInsight*)",
+      "Bash(rm -f /home/spro/development/VibedInsight*)",
+      "Bash(rm -rf /home/spro/development/VibedInsight*)",
+      "Bash(rm /tmp/VibedInsight*)",
+      "Bash(rm -f /tmp/VibedInsight*)",
+      "Bash(rm -rf /tmp/VibedInsight*)",
+      "Bash(touch*)", "Bash(chmod*)", "Bash(curl*)",
+      "Bash(black*)", "Bash(ruff*)", "Bash(source*)",
+      "Bash(echo*)", "Bash(sed*)", "Bash(sort*)", "Bash(xargs*)",
+      "Bash(sleep*)", "Bash(until*)", "Bash(ss*)", "WebSearch",
+      "Bash(flutter*)", "Bash(adb*)", "Bash(dart*)"
+    ],
+    "deny": [
+      "Bash(sudo*)", "Bash(rm -rf /*)", "Bash(rm -rf /home*)",
+      "Bash(rm -rf /root*)", "Bash(rm -rf /srv*)",
+      "Bash(shutdown*)", "Bash(reboot*)", "Bash(systemctl*)",
+      "Bash(ssh*)"
+    ]
+  }
+}
