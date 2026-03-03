@@ -62,9 +62,14 @@ install() {
     log_info "Building and starting containers..."
     docker compose up -d --build
 
-    # Wait for health
-    log_info "Waiting for services to be healthy..."
-    sleep 10
+    # Wait until healthy
+    wait_healthy
+
+    # Stamp Alembic on fresh install
+    log_info "Stamping Alembic migration state..."
+    docker compose exec -T api alembic stamp head 2>/dev/null && \
+        log_info "Alembic stamped at head" || \
+        log_warn "Alembic stamp skipped (non-critical)"
 
     # Check status
     status
@@ -72,6 +77,22 @@ install() {
     log_info "Installation complete!"
     log_info "API available at: https://insight.lab.$DOMAIN"
     log_info "Swagger UI at: https://insight.lab.$DOMAIN/docs"
+}
+
+# Wait for API to become healthy (retries for up to 60s)
+wait_healthy() {
+    log_info "Waiting for API to become healthy..."
+    for i in $(seq 1 12); do
+        if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+            echo -e "  API: ${GREEN}healthy${NC} (after ${i}×5s)"
+            return 0
+        fi
+        echo "  Attempt $i/12 — not ready yet, waiting 5s..."
+        sleep 5
+    done
+    log_error "API did not become healthy within 60s!"
+    docker compose logs --tail=50 api
+    return 1
 }
 
 # Update existing installation
@@ -85,7 +106,19 @@ update() {
 
     cd "$INSTALL_DIR"
 
+    # Backup database before any changes
+    log_info "Creating pre-deploy backup..."
+    cd "$BACKEND_DIR"
+    BACKUP_FILE="backup_predeploy_$(date +%Y%m%d_%H%M%S).sql"
+    if docker compose exec -T postgres pg_isready -U vibedinsight > /dev/null 2>&1; then
+        docker compose exec -T postgres pg_dump -U vibedinsight vibedinsight > "$BACKUP_FILE"
+        log_info "Backup saved: $BACKEND_DIR/$BACKUP_FILE"
+    else
+        log_warn "PostgreSQL not reachable — skipping backup"
+    fi
+
     # Pull latest changes
+    cd "$INSTALL_DIR"
     log_info "Pulling latest changes..."
     git pull
 
@@ -94,6 +127,16 @@ update() {
     log_info "Rebuilding API container..."
     docker compose build --no-cache api
     docker compose up -d api
+
+    # Wait until healthy
+    wait_healthy
+
+    # Stamp Alembic so it knows the current schema state
+    # (safe to run repeatedly — only updates alembic_version table)
+    log_info "Stamping Alembic migration state..."
+    docker compose exec -T api alembic stamp head 2>/dev/null && \
+        log_info "Alembic stamped at head" || \
+        log_warn "Alembic stamp skipped (non-critical)"
 
     # Cleanup old images
     log_info "Cleaning up old images..."
@@ -142,6 +185,13 @@ backup() {
 
     log_info "Backup saved to: $BACKEND_DIR/$BACKUP_FILE"
     ls -lh "$BACKUP_FILE"
+
+    # Keep only last 10 backups
+    BACKUP_COUNT=$(ls backup_*.sql 2>/dev/null | wc -l)
+    if [[ "$BACKUP_COUNT" -gt 10 ]]; then
+        log_info "Removing old backups (keeping last 10)..."
+        ls -t backup_*.sql | tail -n +11 | xargs rm -f
+    fi
 }
 
 # Restart services
