@@ -4,13 +4,31 @@ A self-hosted personal knowledge platform for collecting, analyzing, and summari
 
 Think of it as a self-hosted alternative to Raindrop.io + Readwise, with local AI processing via Ollama.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/01_inbox.png" width="22%" alt="Inbox" />
+  &nbsp;
+  <img src="screenshots/02_detail.png" width="22%" alt="Article Detail" />
+  &nbsp;
+  <img src="screenshots/03_weekly.png" width="22%" alt="Weekly Summary" />
+  &nbsp;
+  <img src="screenshots/04_favorites.png" width="22%" alt="Filters" />
+</p>
+<p align="center">
+  <em>Inbox &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Article Detail &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Weekly Summary &nbsp;&nbsp;&nbsp;&nbsp; Filter & Search</em>
+</p>
+
 ## Features
 
-- **Collect** - Save links, articles, and notes from anywhere
-- **Summarize** - AI-generated summaries using local LLM (Ollama)
+- **Collect** - Save links, articles, and notes from anywhere via URL or Android Share Sheet
+- **Summarize** - AI-generated summaries using local LLM (Ollama/llama3.2)
 - **Organize** - Automatic topic extraction and categorization
-- **Share** - Android Share Sheet integration for quick capture
-- **Privacy** - Self-hosted, your data stays on your server
+- **Weekly Digest** - AI-generated weekly summary with key insights across all saved articles
+- **Rate** - 1–5 star rating for items
+- **Export** - Obsidian-compatible Markdown ZIP export
+- **Knowledge Graph** - Automatic relation detection between articles via shared topics
+- **Privacy** - Self-hosted, your data stays on your server, no tracking
 
 ## Architecture
 
@@ -92,15 +110,19 @@ static const String productionUrl = 'https://insight.lab.YOUR_DOMAIN';
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
-| `GET` | `/items` | List all items |
+| `GET` | `/items` | List items (filter, search, paginate) |
 | `GET` | `/items/{id}` | Get item details |
 | `DELETE` | `/items/{id}` | Delete item |
+| `POST` | `/items/{id}/rating` | Set 1–5 star rating |
 | `POST` | `/ingest/url` | Ingest from URL |
 | `POST` | `/ingest/text` | Ingest raw text |
-| `POST` | `/items/{id}/reprocess` | Reprocess item |
 | `GET` | `/topics` | List all topics |
+| `GET` | `/weekly` | List weekly summaries |
+| `POST` | `/weekly/generate` | Generate weekly AI summary |
+| `GET` | `/export/markdown` | Download Markdown ZIP |
+| `GET` | `/items/graph/data` | Knowledge graph data |
 
-Full API documentation available at `/docs` (Swagger UI).
+Full API documentation at `/docs` (Swagger UI).
 
 ## Tech Stack
 
