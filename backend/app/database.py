@@ -1,6 +1,6 @@
-import asyncio
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -22,16 +22,11 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-def _run_alembic_upgrade() -> None:
-    """Run Alembic migrations synchronously (called from thread executor)."""
-    from alembic import command
-    from alembic.config import Config
-
-    cfg = Config("alembic.ini")
-    command.upgrade(cfg, "head")
-
-
 async def init_db() -> None:
-    """Run all pending Alembic migrations on startup."""
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _run_alembic_upgrade)
+    """Create all tables and apply incremental column migrations."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        # Incremental schema migrations — safe to run repeatedly
+        await conn.execute(
+            text("ALTER TABLE user_items ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 0")
+        )

@@ -247,6 +247,7 @@ async def _load_user_item_response(user_item_id: int, db: AsyncSession) -> UserI
         is_favorite=ui.is_favorite,
         is_read=ui.is_read,
         is_archived=ui.is_archived,
+        rating=ui.rating,
         created_at=ui.created_at,
         updated_at=ui.updated_at,
         processed_at=content.processed_at,
