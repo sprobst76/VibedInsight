@@ -75,6 +75,31 @@ def _ollama_client() -> ollama.AsyncClient:
     )
 
 
+# Only try to auto-pull a missing chat model once per process
+_pull_attempted = False
+
+
+async def _pull_missing_model() -> bool:
+    """Pull the configured chat model if Ollama reports it missing."""
+    global _pull_attempted
+    if _pull_attempted:
+        return False
+    _pull_attempted = True
+
+    logger.warning(f"Chat model {settings.ollama_model} missing — pulling from Ollama registry")
+    client = ollama.AsyncClient(
+        host=settings.ollama_base_url,
+        timeout=httpx.Timeout(1800.0, connect=30.0),
+    )
+    try:
+        await client.pull(settings.ollama_model)
+        logger.info(f"Model {settings.ollama_model} pulled successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to pull model {settings.ollama_model}: {e}")
+        return False
+
+
 async def _ollama_chat_with_retry(
     messages: list[dict],
     format: dict | None = None,
@@ -92,6 +117,8 @@ async def _ollama_chat_with_retry(
             return response["message"]["content"]
         except Exception as e:
             last_error = e
+            if "not found" in str(e).lower() and await _pull_missing_model():
+                continue  # model is available now, retry immediately
             if attempt < MAX_RETRIES:
                 wait = RETRY_BACKOFF[attempt]
                 logger.warning(f"Ollama attempt {attempt + 1} failed: {e}. Retrying in {wait}s...")
