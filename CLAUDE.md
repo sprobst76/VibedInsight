@@ -30,6 +30,18 @@ Flutter-App (Android) + FastAPI-Backend + PostgreSQL (pgvector) auf dem VPS.
 - Weekly-Digest wird sonntags 18:00 automatisch generiert
   (`app/services/scheduler.py`, abschaltbar via `WEEKLY_AUTO_GENERATE=false`).
 
+## Prod-Setup (Stand 2026-07-11)
+
+- VPS-Ollama hat gepullt: `llama3.2:3b`, `qwen2.5:3b`, `mxbai-embed-large`,
+  `nomic-embed-text`. Die VPS-`.env` stand auf `OLLAMA_MODEL=llama3.2:1b`
+  (nicht gepullt!) — deshalb schlugen alle Summaries fehl. Das Backend pullt
+  fehlende Chat-Modelle jetzt automatisch nach; besser: `OLLAMA_MODEL` in
+  der VPS-`.env` auf `llama3.2:3b` oder `qwen2.5:3b` stellen.
+- `API_KEY` ist in der VPS-`.env` noch NICHT gesetzt (Compose lässt es
+  übergangsweise zu; Backend loggt Warnung). Setzen = API geschützt.
+- Diagnose ohne SSH: `GET /admin/ollama/check`, `GET /admin/stats`,
+  `GET /admin/reprocess-status/<batch_id>`.
+
 ## Stolperfallen
 
 - Der API-Container hat **kein Host-Port-Mapping** (nur Traefik-Netz
