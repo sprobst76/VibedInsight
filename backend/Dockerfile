@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install dependencies
+# Copy and install dependencies (single source of truth: pyproject.toml)
 COPY pyproject.toml .
 RUN pip install --no-cache-dir \
     "fastapi>=0.115.0" \
@@ -19,11 +19,14 @@ RUN pip install --no-cache-dir \
     "trafilatura>=2.0.0" \
     "ollama>=0.4.0" \
     "python-multipart>=0.0.18" \
-    "alembic>=1.14.0"
+    "alembic>=1.14.0" \
+    "pgvector>=0.3.0"
 
 # Copy application code
 COPY . .
 
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/entrypoint.sh"]

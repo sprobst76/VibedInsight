@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../config/api_config.dart';
@@ -7,27 +8,30 @@ import '../models/content_item.dart';
 class ApiClient {
   late final Dio _dio;
 
-  ApiClient() {
+  ApiClient({required String baseUrl, String apiKey = ''}) {
     _dio = Dio(
       BaseOptions(
-        baseUrl: ApiConfig.baseUrl,
+        baseUrl: baseUrl,
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          if (apiKey.isNotEmpty) 'X-API-Key': apiKey,
         },
       ),
     );
 
-    // Add logging interceptor for debugging
-    _dio.interceptors.add(
-      LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        error: true,
-      ),
-    );
+    // Log requests in debug builds only (bodies may contain personal data)
+    if (kDebugMode) {
+      _dio.interceptors.add(
+        LogInterceptor(
+          requestBody: true,
+          responseBody: true,
+          error: true,
+        ),
+      );
+    }
   }
 
   // Health Check
@@ -176,7 +180,7 @@ class ApiClient {
   }
 
   Future<ContentItem> reprocessItem(int id) async {
-    final response = await _dio.post('/ingest/$id/reprocess');
+    final response = await _dio.post('/items/$id/reprocess');
     return ContentItem.fromJson(response.data);
   }
 

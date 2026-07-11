@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'config/app_settings.dart';
 import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/weekly_screen.dart';
 import 'screens/graph_screen.dart';
 import 'services/notification_service.dart';
+import 'providers/api_provider.dart';
 import 'providers/share_intent_provider.dart';
 
 void main() async {
@@ -23,9 +26,15 @@ void main() async {
   // Initialize timeago localization
   timeago.setLocaleMessages('de', timeago.DeMessages());
 
+  // Load persisted connection settings (server URL + API key)
+  final settings = await AppSettings.load();
+
   runApp(
-    const ProviderScope(
-      child: VibedInsightApp(),
+    ProviderScope(
+      overrides: [
+        appSettingsProvider.overrideWith((ref) => settings),
+      ],
+      child: const VibedInsightApp(),
     ),
   );
 }
@@ -51,6 +60,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/graph',
       builder: (context, state) => const GraphScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
     ),
   ],
 );

@@ -23,12 +23,14 @@ class WeeklyState {
     this.selectedTopicName,
   });
 
+  static const _unsetError = Object();
+
   WeeklyState copyWith({
     WeeklySummary? currentWeek,
     List<WeeklySummaryListItem>? summaries,
     bool? isLoading,
     bool? isGenerating,
-    String? error,
+    Object? error = _unsetError,
     int? selectedTopicId,
     String? selectedTopicName,
     bool clearTopicFilter = false,
@@ -38,7 +40,8 @@ class WeeklyState {
       summaries: summaries ?? this.summaries,
       isLoading: isLoading ?? this.isLoading,
       isGenerating: isGenerating ?? this.isGenerating,
-      error: error,
+      // Sentinel: omitting `error` keeps the current value; null clears it
+      error: identical(error, _unsetError) ? this.error : error as String?,
       selectedTopicId: clearTopicFilter ? null : (selectedTopicId ?? this.selectedTopicId),
       selectedTopicName: clearTopicFilter ? null : (selectedTopicName ?? this.selectedTopicName),
     );

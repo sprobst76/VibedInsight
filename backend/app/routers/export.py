@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_dev_or_current_user
+from app.dependencies import get_current_user
 from app.models.content import ContentItem, ProcessingStatus
 from app.models.user import User, UserItem
 
@@ -61,7 +61,7 @@ def _item_to_markdown(user_item: UserItem) -> str:
 
 @router.get("/markdown")
 async def export_markdown(
-    user: User = Depends(get_dev_or_current_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Export all summarized items as an Obsidian-compatible Markdown ZIP."""

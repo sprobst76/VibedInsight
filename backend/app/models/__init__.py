@@ -1,4 +1,5 @@
 from app.models.content import (
+    ContentEmbedding,
     ContentItem,
     ContentType,
     ItemRelation,
@@ -7,9 +8,10 @@ from app.models.content import (
     Topic,
     WeeklySummary,
 )
-from app.models.user import RefreshToken, User, UserItem, UserVaultEntry
+from app.models.user import User, UserItem
 
 __all__ = [
+    "ContentEmbedding",
     "ContentItem",
     "ContentType",
     "ItemRelation",
@@ -19,6 +21,4 @@ __all__ = [
     "WeeklySummary",
     "User",
     "UserItem",
-    "UserVaultEntry",
-    "RefreshToken",
 ]

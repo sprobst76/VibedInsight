@@ -10,7 +10,8 @@ networks:
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector image (PostgreSQL 16 + vector extension) for semantic search
+    image: pgvector/pgvector:pg16
     container_name: vibedinsight-postgres
     restart: unless-stopped
     deploy:
@@ -57,6 +58,12 @@ services:
       - DATABASE_URL=postgresql+asyncpg://vibedinsight:${POSTGRES_PASSWORD}@vibedinsight-postgres:5432/vibedinsight
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-mxbai-embed-large}
+      # WICHTIG: API_KEY in .env setzen — ohne Key läuft die API ungeschützt
+      # (Übergangsweise optional, damit Bestands-Deploys nicht hart scheitern)
+      - API_KEY=${API_KEY:-}
+      - ALLOW_PRIVATE_URLS=${ALLOW_PRIVATE_URLS:-false}
+      - WEEKLY_AUTO_GENERATE=${WEEKLY_AUTO_GENERATE:-true}
       - DEBUG=false
     depends_on:
       postgres:

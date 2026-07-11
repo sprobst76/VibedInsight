@@ -153,7 +153,7 @@ void main() {
   group('RelatedItem', () {
     test('fromJson creates correct RelatedItem', () {
       final json = {
-        'id': 10,
+        'id': 'a1b2c3d4-0000-0000-0000-000000000010',
         'title': 'Related Article',
         'source': 'related.com',
         'relation_type': 'related',
@@ -162,7 +162,7 @@ void main() {
 
       final item = RelatedItem.fromJson(json);
 
-      expect(item.id, 10);
+      expect(item.id, 'a1b2c3d4-0000-0000-0000-000000000010');
       expect(item.title, 'Related Article');
       expect(item.source, 'related.com');
       expect(item.relationType, RelationType.related);

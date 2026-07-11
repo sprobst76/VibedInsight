@@ -65,3 +65,4 @@ app/*.iml
 .DS_Store
 Thumbs.db
 *.apk
+.claude/settings.local.json

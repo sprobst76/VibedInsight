@@ -1,39 +1,42 @@
 """
-Content models for anonymous content storage.
+Content models.
 
-Privacy Design:
-- ContentItem has NO user_id - content is anonymous
-- User-content mapping is in encrypted UserVaultEntry
-- url_hash enables deduplication without exposing URLs
-- ref_count tracks how many users reference this content
+ContentItem stores the article/note itself (deduplicated via url_hash);
+per-user flags live in UserItem. Embeddings are pgvector columns used for
+semantic similarity (knowledge graph, related items).
 """
 
 import enum
 import uuid
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Table, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 
-class ContentType(str, enum.Enum):
+def _enum_values(enum_cls):
+    return [member.value for member in enum_cls]
+
+
+class ContentType(enum.StrEnum):
     LINK = "link"
     NEWSLETTER = "newsletter"
     PDF = "pdf"
     NOTE = "note"
 
 
-class ProcessingStatus(str, enum.Enum):
+class ProcessingStatus(enum.StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
 
 
-class RelationType(str, enum.Enum):
+class RelationType(enum.StrEnum):
     RELATED = "related"
     EXTENDS = "extends"
     CONTRADICTS = "contradicts"
@@ -76,21 +79,20 @@ class Topic(Base):
 
 
 class ContentItem(Base):
-    """
-    Anonymous content storage.
-
-    IMPORTANT: This table has NO user_id!
-    User-content mapping is stored encrypted in user_vault_entries.
-    """
+    """Shared content storage; per-user flags live in UserItem."""
 
     __tablename__ = "content_items"
 
     # UUID primary key (not incremental, prevents enumeration)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    content_type: Mapped[ContentType] = mapped_column(Enum(ContentType), default=ContentType.LINK)
+    # values_callable: store the lowercase enum VALUES in Postgres (matching
+    # the Alembic migrations), not the uppercase member names
+    content_type: Mapped[ContentType] = mapped_column(
+        Enum(ContentType, values_callable=_enum_values), default=ContentType.LINK
+    )
     status: Mapped[ProcessingStatus] = mapped_column(
-        Enum(ProcessingStatus), default=ProcessingStatus.PENDING
+        Enum(ProcessingStatus, values_callable=_enum_values), default=ProcessingStatus.PENDING
     )
 
     # URL deduplication
@@ -103,14 +105,12 @@ class ContentItem(Base):
     title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     source: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # Content (raw_text is deleted after processing!)
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Reference counting for garbage collection
     ref_count: Mapped[int] = mapped_column(Integer, default=1, index=True)
 
-    # Timestamps (NO updated_at - would reveal access patterns)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -135,12 +135,7 @@ class ContentItem(Base):
 
 
 class WeeklySummary(Base):
-    """
-    Weekly summary of content items.
-
-    Note: In the privacy-focused architecture, this is kept for backwards
-    compatibility but may need redesign since content is now anonymous.
-    """
+    """Weekly summary of content items."""
 
     __tablename__ = "weekly_summaries"
 
@@ -183,7 +178,7 @@ class ItemRelation(Base):
         index=True,
     )
     relation_type: Mapped[RelationType] = mapped_column(
-        Enum(RelationType), default=RelationType.RELATED
+        Enum(RelationType, values_callable=_enum_values), default=RelationType.RELATED
     )
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -215,12 +210,12 @@ class ContentEmbedding(Base):
         index=True,
     )
 
-    # Embedding vector (768 dimensions for nomic-embed-text)
-    # Stored as array of floats
-    embedding: Mapped[list[float]] = mapped_column(ARRAY(Float), nullable=False)
+    # pgvector column; dimension must match the Ollama embedding model
+    # (mxbai-embed-large = 1024). Changing models requires re-embedding.
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
 
     # Model used to generate embedding (for versioning)
-    model: Mapped[str] = mapped_column(String(100), default="nomic-embed-text")
+    model: Mapped[str] = mapped_column(String(100), default="mxbai-embed-large")
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -1,6 +1,4 @@
-Analysiere die folgenden Artikel und erstelle eine strukturierte Wochenzusammenfassung.
-
-WICHTIG: Antworte NUR mit den Abschnitten unten. Keine Einleitung, keine Erklaerung, keine Begruesssung. Beginne direkt mit "TL;DR:".
+Analysiere die folgenden Artikel und erstelle eine strukturierte Wochenzusammenfassung auf Deutsch.
 
 ARTIKEL:
 {content}
@@ -11,26 +9,12 @@ THEMEN DER ARTIKEL:
 BEKANNTE VERBINDUNGEN:
 {relations_summary}
 
-Erstelle jetzt die Zusammenfassung im EXAKTEN Format:
+Antworte als JSON-Objekt mit genau diesen Feldern:
+- "tldr": 1-2 Sätze zur wichtigsten Erkenntnis der Woche
+- "summary": 2-3 Absätze zu den wichtigsten Erkenntnissen der Woche
+- "key_insights": Liste mit 3-5 wichtigen Erkenntnissen (je ein Satz)
+- "top_topics": Liste der 5 wichtigsten Themen der Woche
+- "topic_clusters": Liste von Objekten {{"name": Themenname, "article_count": Anzahl der Artikel, "description": was diese Artikel gemeinsam haben}}
+- "connections": Liste von Sätzen, die Zusammenhänge zwischen Artikeln beschreiben
 
-TL;DR:
-[Schreibe hier 1-2 Saetze zur wichtigsten Erkenntnis der Woche]
-
-THEMEN-CLUSTER:
-**[Themenname]** ([Anzahl] Artikel): [Kurzbeschreibung was diese Artikel gemeinsam haben]
-**[Themenname]** ([Anzahl] Artikel): [Kurzbeschreibung]
-
-VERBINDUNGEN:
-- [Beschreibe Zusammenhang zwischen zwei Artikeln]
-- [Weiterer Zusammenhang]
-
-ZUSAMMENFASSUNG:
-[Schreibe 2-3 Absaetze zu den wichtigsten Erkenntnissen der Woche]
-
-KEY INSIGHTS:
-- [Erste wichtige Erkenntnis]
-- [Zweite wichtige Erkenntnis]
-- [Dritte wichtige Erkenntnis]
-
-TOP TOPICS:
-[Thema1], [Thema2], [Thema3], [Thema4], [Thema5]
+Schreibe sachlich und konkret. Erfinde keine Inhalte, die nicht in den Artikeln stehen.

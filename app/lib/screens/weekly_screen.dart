@@ -50,7 +50,7 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
                     onPressed: () => _showTopicFilterSheet(context, topics, state),
                   ),
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
           ),
           if (state.currentWeek?.hasSummary == true)
             IconButton(
@@ -85,26 +85,33 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            RadioListTile<int?>(
-              title: const Text('Alle Topics'),
-              value: null,
+            RadioGroup<int?>(
               groupValue: state.selectedTopicId,
-              onChanged: (_) {
-                ref.read(weeklyProvider.notifier).setTopicFilter(null, null);
+              onChanged: (topicId) {
+                if (topicId == null) {
+                  ref.read(weeklyProvider.notifier).setTopicFilter(null, null);
+                } else {
+                  final topic = topics.firstWhere((t) => t.id == topicId);
+                  ref
+                      .read(weeklyProvider.notifier)
+                      .setTopicFilter(topic.id, topic.name);
+                }
                 Navigator.pop(ctx);
               },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const RadioListTile<int?>(
+                    title: Text('Alle Topics'),
+                    value: null,
+                  ),
+                  ...topics.map((topic) => RadioListTile<int?>(
+                        title: Text(topic.name),
+                        value: topic.id,
+                      )),
+                ],
+              ),
             ),
-            ...topics.map((topic) => RadioListTile<int?>(
-                  title: Text(topic.name),
-                  value: topic.id,
-                  groupValue: state.selectedTopicId,
-                  onChanged: (_) {
-                    ref
-                        .read(weeklyProvider.notifier)
-                        .setTopicFilter(topic.id, topic.name);
-                    Navigator.pop(ctx);
-                  },
-                )),
             const SizedBox(height: 8),
           ],
         ),

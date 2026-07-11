@@ -47,9 +47,12 @@ install() {
         log_info "Creating .env file..."
         cp .env.example .env
 
-        # Generate secure password
+        # Generate secure password and API key
         POSTGRES_PW=$(openssl rand -base64 24)
         sed -i "s/CHANGE_ME_TO_SECURE_PASSWORD/$POSTGRES_PW/" .env
+        API_KEY=$(openssl rand -hex 32)
+        sed -i "s/CHANGE_ME_TO_RANDOM_API_KEY/$API_KEY/" .env
+        log_info "Generated API key (needed in the app): $API_KEY"
 
         log_warn "Edit .env to set your DOMAIN:"
         log_warn "  nano $BACKEND_DIR/.env"
@@ -58,18 +61,12 @@ install() {
         sed -i "s/your-domain.com/$DOMAIN/" .env
     fi
 
-    # Build and start
+    # Build and start (the container entrypoint runs alembic upgrade head)
     log_info "Building and starting containers..."
     docker compose up -d --build
 
     # Wait until healthy
     wait_healthy
-
-    # Stamp Alembic on fresh install
-    log_info "Stamping Alembic migration state..."
-    docker compose exec -T api alembic stamp head 2>/dev/null && \
-        log_info "Alembic stamped at head" || \
-        log_warn "Alembic stamp skipped (non-critical)"
 
     # Check status
     status
@@ -79,19 +76,22 @@ install() {
     log_info "Swagger UI at: https://insight.lab.$DOMAIN/docs"
 }
 
-# Wait for API to become healthy (retries for up to 60s)
+# Wait for API to become healthy (retries for up to 120s).
+# NOTE: the api container has no host port mapping (Traefik network only),
+# so the check must run inside the container.
 wait_healthy() {
     log_info "Waiting for API to become healthy..."
-    for i in $(seq 1 12); do
-        if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    for i in $(seq 1 24); do
+        if docker compose exec -T api curl -sf http://localhost:8000/health > /dev/null 2>&1; then
             echo -e "  API: ${GREEN}healthy${NC} (after ${i}×5s)"
             return 0
         fi
-        echo "  Attempt $i/12 — not ready yet, waiting 5s..."
+        echo "  Attempt $i/24 — not ready yet, waiting 5s..."
         sleep 5
     done
-    log_error "API did not become healthy within 60s!"
-    docker compose logs --tail=50 api
+    log_error "API did not become healthy within 120s!"
+    docker compose logs --tail=80 api
+    log_error "Rollback: restore the pre-deploy backup and 'git checkout' the previous commit."
     return 1
 }
 
@@ -112,7 +112,14 @@ update() {
     BACKUP_FILE="backup_predeploy_$(date +%Y%m%d_%H%M%S).sql"
     if docker compose exec -T postgres pg_isready -U vibedinsight > /dev/null 2>&1; then
         docker compose exec -T postgres pg_dump -U vibedinsight vibedinsight > "$BACKUP_FILE"
-        log_info "Backup saved: $BACKEND_DIR/$BACKUP_FILE"
+        if [[ ! -s "$BACKUP_FILE" ]]; then
+            log_error "Backup file is empty — aborting deploy!"
+            rm -f "$BACKUP_FILE"
+            exit 1
+        fi
+        log_info "Backup saved: $BACKEND_DIR/$BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+        # Keep only the last 5 pre-deploy backups
+        ls -t backup_predeploy_*.sql 2>/dev/null | tail -n +6 | xargs -r rm -f
     else
         log_warn "PostgreSQL not reachable — skipping backup"
     fi
@@ -122,21 +129,15 @@ update() {
     log_info "Pulling latest changes..."
     git pull
 
-    # Rebuild and restart API
+    # Rebuild and restart (postgres too, in case its image changed;
+    # the api entrypoint runs `alembic upgrade head` before starting)
     cd "$BACKEND_DIR"
     log_info "Rebuilding API container..."
     docker compose build --no-cache api
-    docker compose up -d api
+    docker compose up -d
 
     # Wait until healthy
     wait_healthy
-
-    # Stamp Alembic so it knows the current schema state
-    # (safe to run repeatedly — only updates alembic_version table)
-    log_info "Stamping Alembic migration state..."
-    docker compose exec -T api alembic stamp head 2>/dev/null && \
-        log_info "Alembic stamped at head" || \
-        log_warn "Alembic stamp skipped (non-critical)"
 
     # Cleanup old images
     log_info "Cleaning up old images..."

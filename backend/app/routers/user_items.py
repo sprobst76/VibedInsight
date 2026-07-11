@@ -1,14 +1,8 @@
 """
-User Items Router - User-specific content operations.
+Items Router - the API the Flutter frontend talks to.
 
-This provides a backwards-compatible API for the Flutter frontend that expects:
-- Integer IDs
-- User-specific flags (is_favorite, is_read, is_archived)
-- GET /items with search, topic filter, pagination
-
-Note: This is a compatibility layer. The privacy-focused architecture uses
-encrypted vault entries. This router uses the unencrypted user_items table
-for development and transition purposes.
+UserItem = per-user flags (favorite/read/archived/rating) + link to the
+shared ContentItem. Integer IDs.
 """
 
 import math
@@ -20,77 +14,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_dev_or_current_user
-from app.models.content import ContentItem, ItemRelation, Topic
+from app.dependencies import get_current_user
+from app.models.content import ContentItem, ItemRelation, ProcessingStatus, Topic
 from app.models.user import User, UserItem
 from app.schemas import (
+    ContentItemUpdate,
     TopicResponse,
     UserItemResponse,
     UserItemsListResponse,
 )
+from app.services.processing import reprocess_item
+
+router = APIRouter()
 
 
 class BulkIdsRequest(BaseModel):
     ids: list[int]
 
 
-router = APIRouter()
-
-
-@router.get("/graph/data")
-async def get_graph_data(
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get all content items and their relations as graph data.
-
-    Returns nodes (items) and edges (relations) for visualization.
-    """
-    from app.models.content import ProcessingStatus
-
-    # Get all completed items with their topics
-    items_query = (
-        select(ContentItem)
-        .options(selectinload(ContentItem.topics))
-        .where(ContentItem.status == ProcessingStatus.COMPLETED)
-    )
-    items_result = await db.execute(items_query)
-    items = items_result.scalars().all()
-
-    # Get all relations
-    relations_query = select(ItemRelation)
-    relations_result = await db.execute(relations_query)
-    relations = relations_result.scalars().all()
-
-    # Build nodes list
-    nodes = []
-    for item in items:
-        primary_topic = item.topics[0].name if item.topics else None
-        nodes.append({
-            "id": str(item.id),
-            "title": item.title or "Untitled",
-            "source": item.source,
-            "topic_count": len(item.topics),
-            "primary_topic": primary_topic,
-            "topics": [t.name for t in item.topics],
-        })
-
-    # Build edges list
-    edges = []
-    for rel in relations:
-        edges.append({
-            "source": str(rel.source_id),
-            "target": str(rel.target_id),
-            "weight": rel.confidence,
-            "type": rel.relation_type.value,
-        })
-
-    return {
-        "nodes": nodes,
-        "edges": edges,
-        "node_count": len(nodes),
-        "edge_count": len(edges),
-    }
+class RatingRequest(BaseModel):
+    rating: int  # 0=unrated, 1-5=stars
 
 
 def _build_user_item_response(user_item: UserItem) -> UserItemResponse:
@@ -115,6 +58,80 @@ def _build_user_item_response(user_item: UserItem) -> UserItemResponse:
     )
 
 
+async def _get_user_item(item_id: int, user: User, db: AsyncSession) -> UserItem:
+    """Load a UserItem (with content+topics) owned by the user, or 404."""
+    query = (
+        select(UserItem)
+        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
+        .where(UserItem.id == item_id, UserItem.user_id == user.id)
+    )
+    result = await db.execute(query)
+    user_item = result.scalar_one_or_none()
+
+    if not user_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return user_item
+
+
+@router.get("/graph/data")
+async def get_graph_data(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the user's content items and their relations as graph data."""
+    items_query = (
+        select(ContentItem)
+        .join(UserItem, UserItem.content_id == ContentItem.id)
+        .options(selectinload(ContentItem.topics))
+        .where(
+            UserItem.user_id == user.id,
+            ContentItem.status == ProcessingStatus.COMPLETED,
+        )
+    )
+    items_result = await db.execute(items_query)
+    items = items_result.scalars().unique().all()
+    item_ids = {item.id for item in items}
+
+    relations_result = await db.execute(select(ItemRelation))
+    relations = [
+        rel
+        for rel in relations_result.scalars().all()
+        if rel.source_id in item_ids and rel.target_id in item_ids
+    ]
+
+    nodes = []
+    for item in items:
+        primary_topic = item.topics[0].name if item.topics else None
+        nodes.append(
+            {
+                "id": str(item.id),
+                "title": item.title or "Untitled",
+                "source": item.source,
+                "topic_count": len(item.topics),
+                "primary_topic": primary_topic,
+                "topics": [t.name for t in item.topics],
+            }
+        )
+
+    edges = [
+        {
+            "source": str(rel.source_id),
+            "target": str(rel.target_id),
+            "weight": rel.confidence,
+            "type": rel.relation_type.value,
+        }
+        for rel in relations
+    ]
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+    }
+
+
 @router.get("", response_model=UserItemsListResponse)
 async def list_items(
     page: int = Query(1, ge=1),
@@ -126,45 +143,36 @@ async def list_items(
     archived_only: bool = Query(False, description="Only show archived items"),
     sort_by: str = Query("date", pattern="^(date|title|status)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
-    user: User = Depends(get_dev_or_current_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    List user's items with filtering, search, and pagination.
-
-    This endpoint combines ContentItem data with user-specific flags
-    from the user_items junction table.
-    """
-    # Base query: user's items with content loaded
+    """List the user's items with filtering, search, and pagination."""
     query = (
         select(UserItem)
         .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
         .where(UserItem.user_id == user.id)
     )
 
-    # Apply filters
     if favorites_only:
-        query = query.where(UserItem.is_favorite == True)  # noqa: E712
+        query = query.where(UserItem.is_favorite.is_(True))
 
     if unread_only:
-        query = query.where(UserItem.is_read == False)  # noqa: E712
+        query = query.where(UserItem.is_read.is_(False))
 
     if archived_only:
-        query = query.where(UserItem.is_archived == True)  # noqa: E712
+        query = query.where(UserItem.is_archived.is_(True))
     else:
-        # By default, don't show archived items
-        query = query.where(UserItem.is_archived == False)  # noqa: E712
+        query = query.where(UserItem.is_archived.is_(False))
 
-    # Topic filter - need to join through content
+    needs_content_join = topic_id is not None or search or sort_by in ("title", "status")
+    if needs_content_join:
+        query = query.join(UserItem.content)
+
     if topic_id is not None:
-        query = query.join(UserItem.content).where(ContentItem.topics.any(Topic.id == topic_id))
+        query = query.where(ContentItem.topics.any(Topic.id == topic_id))
 
-    # Search filter
     if search:
         search_pattern = f"%{search}%"
-        # Need to join content if not already joined
-        if topic_id is None:
-            query = query.join(UserItem.content)
         query = query.where(
             or_(
                 ContentItem.title.ilike(search_pattern),
@@ -172,41 +180,25 @@ async def list_items(
             )
         )
 
-    # Count total before pagination
-    count_query = select(func.count()).select_from(query.subquery())
-    total = await db.scalar(count_query)
+    total = await db.scalar(select(func.count()).select_from(query.subquery()))
 
-    # Sorting
     if sort_by == "date":
         order_col = UserItem.created_at
     elif sort_by == "title":
-        # Need to sort by content.title
-        if topic_id is None and search is None:
-            query = query.join(UserItem.content)
         order_col = ContentItem.title
-    else:  # status
-        if topic_id is None and search is None:
-            query = query.join(UserItem.content)
+    else:
         order_col = ContentItem.status
 
-    if sort_order == "desc":
-        query = query.order_by(order_col.desc())
-    else:
-        query = query.order_by(order_col.asc())
+    query = query.order_by(order_col.desc() if sort_order == "desc" else order_col.asc())
 
-    # Pagination
     offset = (page - 1) * page_size
     query = query.offset(offset).limit(page_size)
 
-    # Execute
     result = await db.execute(query)
     user_items = result.scalars().unique().all()
 
-    # Build response
-    items = [_build_user_item_response(ui) for ui in user_items]
-
     return UserItemsListResponse(
-        items=items,
+        items=[_build_user_item_response(ui) for ui in user_items],
         total=total or 0,
         page=page,
         page_size=page_size,
@@ -214,230 +206,12 @@ async def list_items(
     )
 
 
-@router.get("/{item_id}", response_model=UserItemResponse)
-async def get_item(
-    item_id: int,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Get a single user item by ID."""
-    query = (
-        select(UserItem)
-        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
-        .where(UserItem.id == item_id, UserItem.user_id == user.id)
-    )
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    return _build_user_item_response(user_item)
-
-
-@router.get("/{item_id}/relations")
-async def get_item_with_relations(
-    item_id: int,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get a user item with related content items.
-
-    This proxies to the content relations endpoint while adding user-specific data.
-    """
-    query = (
-        select(UserItem)
-        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
-        .where(UserItem.id == item_id, UserItem.user_id == user.id)
-    )
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    content = user_item.content
-
-    # Get relations
-    from sqlalchemy import or_
-
-    relations_query = (
-        select(ItemRelation)
-        .options(
-            selectinload(ItemRelation.source_item).selectinload(ContentItem.topics),
-            selectinload(ItemRelation.target_item).selectinload(ContentItem.topics),
-        )
-        .where(
-            or_(
-                ItemRelation.source_id == content.id,
-                ItemRelation.target_id == content.id,
-            )
-        )
-    )
-    relations_result = await db.execute(relations_query)
-    relations = relations_result.scalars().unique().all()
-
-    related_items = []
-    for rel in relations:
-        if rel.source_id == content.id:
-            related = rel.target_item
-        else:
-            related = rel.source_item
-
-        related_items.append(
-            {
-                "id": str(related.id),  # UUID as string for frontend
-                "title": related.title,
-                "source": related.source,
-                "relation_type": rel.relation_type.value,
-                "confidence": rel.confidence,
-            }
-        )
-
-    # Build response with relations
-    base_response = _build_user_item_response(user_item)
-    return {
-        **base_response.model_dump(),
-        "related_items": related_items,
-    }
-
-
-@router.post("/{item_id}/favorite", response_model=UserItemResponse)
-async def toggle_favorite(
-    item_id: int,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Toggle favorite status for an item."""
-    query = (
-        select(UserItem)
-        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
-        .where(UserItem.id == item_id, UserItem.user_id == user.id)
-    )
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    user_item.is_favorite = not user_item.is_favorite
-    await db.commit()
-    await db.refresh(user_item)
-
-    return _build_user_item_response(user_item)
-
-
-@router.post("/{item_id}/read", response_model=UserItemResponse)
-async def toggle_read(
-    item_id: int,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Toggle read status for an item."""
-    query = (
-        select(UserItem)
-        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
-        .where(UserItem.id == item_id, UserItem.user_id == user.id)
-    )
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    user_item.is_read = not user_item.is_read
-    await db.commit()
-    await db.refresh(user_item)
-
-    return _build_user_item_response(user_item)
-
-
-@router.post("/{item_id}/archive", response_model=UserItemResponse)
-async def toggle_archive(
-    item_id: int,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Toggle archive status for an item."""
-    query = (
-        select(UserItem)
-        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
-        .where(UserItem.id == item_id, UserItem.user_id == user.id)
-    )
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    user_item.is_archived = not user_item.is_archived
-    await db.commit()
-    await db.refresh(user_item)
-
-    return _build_user_item_response(user_item)
-
-
-class RatingRequest(BaseModel):
-    rating: int  # 0=unrated, 1-5=stars
-
-
-@router.post("/{item_id}/rating", response_model=UserItemResponse)
-async def set_rating(
-    item_id: int,
-    request: RatingRequest,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Set rating (0-5) for an item. 0 means unrated."""
-    query = (
-        select(UserItem)
-        .options(selectinload(UserItem.content).selectinload(ContentItem.topics))
-        .where(UserItem.id == item_id, UserItem.user_id == user.id)
-    )
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    user_item.rating = max(0, min(5, request.rating))
-    await db.commit()
-    await db.refresh(user_item)
-
-    return _build_user_item_response(user_item)
-
-
-@router.delete("/{item_id}")
-async def delete_item(
-    item_id: int,
-    user: User = Depends(get_dev_or_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Delete a user item (removes the user-content link, not the content itself)."""
-    query = select(UserItem).where(UserItem.id == item_id, UserItem.user_id == user.id)
-    result = await db.execute(query)
-    user_item = result.scalar_one_or_none()
-
-    if not user_item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    # Decrement ref_count on content
-    content = await db.get(ContentItem, user_item.content_id)
-    if content:
-        content.ref_count = max(0, content.ref_count - 1)
-
-    await db.delete(user_item)
-    await db.commit()
-
-    return {"status": "deleted"}
-
-
-# Bulk Operations
+# NOTE: bulk routes must be declared before the /{item_id} routes,
+# otherwise "bulk" is captured as item_id and the request 422s.
 @router.post("/bulk/delete")
 async def bulk_delete(
     request: BulkIdsRequest,
-    user: User = Depends(get_dev_or_current_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete multiple user items."""
@@ -447,7 +221,6 @@ async def bulk_delete(
 
     deleted_ids = []
     for user_item in user_items:
-        # Decrement ref_count
         content = await db.get(ContentItem, user_item.content_id)
         if content:
             content.ref_count = max(0, content.ref_count - 1)
@@ -463,7 +236,7 @@ async def bulk_delete(
 @router.post("/bulk/read", response_model=list[UserItemResponse])
 async def bulk_mark_read(
     request: BulkIdsRequest,
-    user: User = Depends(get_dev_or_current_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark multiple items as read."""
@@ -486,7 +259,7 @@ async def bulk_mark_read(
 @router.post("/bulk/archive", response_model=list[UserItemResponse])
 async def bulk_archive(
     request: BulkIdsRequest,
-    user: User = Depends(get_dev_or_current_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Archive multiple items."""
@@ -504,3 +277,187 @@ async def bulk_archive(
     await db.commit()
 
     return [_build_user_item_response(ui) for ui in user_items]
+
+
+@router.get("/{item_id}", response_model=UserItemResponse)
+async def get_item(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single user item by ID."""
+    user_item = await _get_user_item(item_id, user, db)
+    return _build_user_item_response(user_item)
+
+
+@router.get("/{item_id}/relations")
+async def get_item_with_relations(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a user item with related content items."""
+    user_item = await _get_user_item(item_id, user, db)
+    content = user_item.content
+
+    relations_query = (
+        select(ItemRelation)
+        .options(
+            selectinload(ItemRelation.source_item),
+            selectinload(ItemRelation.target_item),
+        )
+        .where(
+            or_(
+                ItemRelation.source_id == content.id,
+                ItemRelation.target_id == content.id,
+            )
+        )
+        .order_by(ItemRelation.confidence.desc())
+    )
+    relations_result = await db.execute(relations_query)
+    relations = relations_result.scalars().unique().all()
+
+    related_items = []
+    for rel in relations:
+        related = rel.target_item if rel.source_id == content.id else rel.source_item
+        related_items.append(
+            {
+                "id": str(related.id),
+                "title": related.title,
+                "source": related.source,
+                "relation_type": rel.relation_type.value,
+                "confidence": rel.confidence,
+            }
+        )
+
+    base_response = _build_user_item_response(user_item)
+    return {
+        **base_response.model_dump(),
+        "related_items": related_items,
+    }
+
+
+@router.patch("/{item_id}", response_model=UserItemResponse)
+async def update_item(
+    item_id: int,
+    request: ContentItemUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update title, summary, or topics of an item's content."""
+    user_item = await _get_user_item(item_id, user, db)
+    content = user_item.content
+
+    if request.title is not None:
+        content.title = request.title
+    if request.summary is not None:
+        content.summary = request.summary
+    if request.topic_ids is not None:
+        topics_result = await db.execute(select(Topic).where(Topic.id.in_(request.topic_ids)))
+        content.topics = list(topics_result.scalars().all())
+
+    await db.commit()
+    await db.refresh(user_item)
+
+    return _build_user_item_response(user_item)
+
+
+@router.post("/{item_id}/reprocess", response_model=UserItemResponse)
+async def reprocess(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-run the AI pipeline for an item (re-fetches the URL if needed)."""
+    user_item = await _get_user_item(item_id, user, db)
+
+    ok = await reprocess_item(user_item.content_id, db)
+    if not ok:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot reprocess: no stored text and no URL to re-fetch",
+        )
+
+    await db.refresh(user_item)
+    return _build_user_item_response(user_item)
+
+
+@router.post("/{item_id}/favorite", response_model=UserItemResponse)
+async def toggle_favorite(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle favorite status for an item."""
+    user_item = await _get_user_item(item_id, user, db)
+    user_item.is_favorite = not user_item.is_favorite
+    await db.commit()
+    await db.refresh(user_item)
+    return _build_user_item_response(user_item)
+
+
+@router.post("/{item_id}/read", response_model=UserItemResponse)
+async def toggle_read(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle read status for an item."""
+    user_item = await _get_user_item(item_id, user, db)
+    user_item.is_read = not user_item.is_read
+    await db.commit()
+    await db.refresh(user_item)
+    return _build_user_item_response(user_item)
+
+
+@router.post("/{item_id}/archive", response_model=UserItemResponse)
+async def toggle_archive(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle archive status for an item."""
+    user_item = await _get_user_item(item_id, user, db)
+    user_item.is_archived = not user_item.is_archived
+    await db.commit()
+    await db.refresh(user_item)
+    return _build_user_item_response(user_item)
+
+
+@router.post("/{item_id}/rating", response_model=UserItemResponse)
+async def set_rating(
+    item_id: int,
+    request: RatingRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set rating (0-5) for an item. 0 means unrated."""
+    user_item = await _get_user_item(item_id, user, db)
+    user_item.rating = max(0, min(5, request.rating))
+    await db.commit()
+    await db.refresh(user_item)
+    return _build_user_item_response(user_item)
+
+
+@router.delete("/{item_id}")
+async def delete_item(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a user item (removes the user-content link, not the content itself)."""
+    query = select(UserItem).where(UserItem.id == item_id, UserItem.user_id == user.id)
+    result = await db.execute(query)
+    user_item = result.scalar_one_or_none()
+
+    if not user_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    content = await db.get(ContentItem, user_item.content_id)
+    if content:
+        content.ref_count = max(0, content.ref_count - 1)
+
+    await db.delete(user_item)
+    await db.commit()
+
+    return {"status": "deleted"}

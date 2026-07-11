@@ -140,7 +140,7 @@ CREATE TABLE item_relations (
 
 ## v1.0.0 - Production Ready
 
-- [ ] **User authentication** - Multi-user support with accounts
+- [x] ~~User authentication~~ → Entschieden: Single-User + API-Key (2026-07) ✅
 - [ ] **API rate limiting** - Protect against abuse
 - [ ] **Comprehensive logging** - Structured logging with levels
 - [ ] **Monitoring & metrics** - Prometheus/Grafana integration
@@ -153,18 +153,17 @@ CREATE TABLE item_relations (
 
 ### Backend
 
-- [ ] Add comprehensive API tests
-- [ ] Implement request validation middleware
-- [ ] Add database migrations with Alembic
-- [ ] Implement retry logic for Ollama calls
-- [ ] Add content deduplication
+- [x] Add comprehensive API tests ✅ (laufen in CI gegen pgvector-Postgres)
+- [x] Add database migrations with Alembic ✅ (Entrypoint: `alembic upgrade head`)
+- [x] Implement retry logic for Ollama calls ✅
+- [x] Add content deduplication ✅ (url_hash)
 - [ ] Implement proper error codes
 - [ ] Add API versioning
 
 ### Mobile App
 
-- [ ] Add unit tests for providers
-- [ ] Add integration tests
+- [ ] Add unit tests for providers (Notifier-Logik ist ungetestet — MockApiClient existiert, wird aber nicht genutzt)
+- [ ] Integration tests entschlacken (aktuell Scheinabdeckung: `if (finder.isNotEmpty)`-Guards)
 - [ ] Implement proper error handling UI
 - [ ] Add loading skeletons
 - [ ] Optimize list performance for large datasets
@@ -183,7 +182,7 @@ CREATE TABLE item_relations (
 
 - [ ] Long URLs may truncate in item cards
 - [ ] Share sheet may not work with all apps
-- [ ] Processing status doesn't auto-refresh
+- [x] Processing status doesn't auto-refresh ✅ (Polling alle 5s solange pending)
 
 ## Contributing
 
@@ -191,4 +190,20 @@ Want to help? Pick an item from this list and submit a PR! See [CONTRIBUTING.md]
 
 ---
 
-Last updated: 2026-01-07
+---
+
+## Nächste Ausbaustufen (Konzept-Ideen, 2026-07)
+
+Priorisiert nach Wert/Aufwand — Grundlage: pgvector + Embeddings sind jetzt im Ingest verdrahtet.
+
+1. **"Frag dein Archiv" (RAG-Chat)** — Chat-Endpoint: Frage → Embedding →
+   pgvector-Top-K → Ollama mit Kontext; Chat-Screen in der App.
+2. **Serendipity-Resurfacing** — täglich/wöchentlich ein altes ungelesenes
+   Item hochspülen ("Vor 3 Monaten gespeichert — noch relevant?").
+3. **KI-Triage** — neue Items gegen bisherige Hoch-Ratings einschätzen und
+   die Inbox vorsortieren (Sterne-Ratings als Trainingssignal).
+4. **Capture-Kanäle** — Telegram-Bot oder Bookmarklet gegen die Ingest-API.
+5. **Push für Weekly-Digest** — Notification-Tap-Handler implementieren
+   (Payload wird bereits gesetzt, Handler ist leer).
+
+Last updated: 2026-07-11

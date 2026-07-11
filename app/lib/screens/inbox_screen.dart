@@ -256,6 +256,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'export') _exportMarkdown();
+            if (value == 'settings') context.push('/settings');
           },
           itemBuilder: (_) => [
             PopupMenuItem(
@@ -272,6 +273,16 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                       : const Icon(Icons.download, size: 20),
                   const SizedBox(width: 12),
                   const Text('Export (Markdown)'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(Icons.settings, size: 20),
+                  SizedBox(width: 12),
+                  Text('Einstellungen'),
                 ],
               ),
             ),
@@ -547,10 +558,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               label: const Text('All'),
               selected: selectedTopicId == null && !state.favoritesOnly && !state.unreadOnly && !state.archivedOnly,
               onSelected: (_) {
-                ref.read(itemsProvider.notifier).setTopicFilter(null);
-                ref.read(itemsProvider.notifier).setFavoritesFilter(false);
-                ref.read(itemsProvider.notifier).setUnreadFilter(false);
-                ref.read(itemsProvider.notifier).setArchivedFilter(false);
+                ref.read(itemsProvider.notifier).resetFilters();
               },
             ),
           ),

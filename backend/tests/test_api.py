@@ -2,23 +2,29 @@
 API integration tests for VibedInsight backend.
 
 These tests run against the real FastAPI app (ASGITransport).
-Authentication uses get_dev_or_current_user which falls back to dev user.
 External services (Ollama, URL fetching) are NOT called in these tests.
 """
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.config import settings
 from app.main import app
 
 
 @pytest.fixture
-async def client():
+async def client(apply_migrations):
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
+
+
+@pytest.fixture
+def no_processing(monkeypatch):
+    """Prevent ingest from spawning Ollama background tasks."""
+    monkeypatch.setattr("app.routers.ingest.schedule_processing", lambda item_id: None)
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +37,119 @@ async def test_health_check(client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
+
+
+# ---------------------------------------------------------------------------
+# API key middleware
+# ---------------------------------------------------------------------------
+
+
+async def test_api_key_required_when_configured(client: AsyncClient, monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "test-secret-key")
+
+    # Without key -> 401
+    response = await client.get("/items")
+    assert response.status_code == 401
+
+    # Wrong key -> 401
+    response = await client.get("/items", headers={"X-API-Key": "wrong"})
+    assert response.status_code == 401
+
+    # Correct key -> 200
+    response = await client.get("/items", headers={"X-API-Key": "test-secret-key"})
+    assert response.status_code == 200
+
+    # /health stays public
+    response = await client.get("/health")
+    assert response.status_code == 200
+
+
+async def test_api_disabled_key_allows_requests(client: AsyncClient):
+    # settings.api_key is empty in the test environment
+    response = await client.get("/items")
+    assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Item lifecycle (ingest text -> read -> flags -> edit -> delete)
+# ---------------------------------------------------------------------------
+
+
+async def test_item_lifecycle(client: AsyncClient, no_processing):
+    # Create a note (background processing is disabled by the fixture)
+    response = await client.post(
+        "/ingest/text",
+        json={"title": "Lifecycle Note", "text": "Some note content", "content_type": "note"},
+    )
+    assert response.status_code == 200
+    item = response.json()
+    item_id = item["id"]
+    assert item["title"] == "Lifecycle Note"
+    assert item["status"] == "pending"
+    assert item["rating"] == 0
+
+    # Appears in list
+    response = await client.get("/items", params={"search": "Lifecycle Note"})
+    assert response.status_code == 200
+    assert any(i["id"] == item_id for i in response.json()["items"])
+
+    # Toggle favorite
+    response = await client.post(f"/items/{item_id}/favorite")
+    assert response.status_code == 200
+    assert response.json()["is_favorite"] is True
+
+    # Set rating (clamped to 5)
+    response = await client.post(f"/items/{item_id}/rating", json={"rating": 9})
+    assert response.status_code == 200
+    assert response.json()["rating"] == 5
+
+    # Edit title via PATCH
+    response = await client.patch(f"/items/{item_id}", json={"title": "Edited Title"})
+    assert response.status_code == 200
+    assert response.json()["title"] == "Edited Title"
+
+    # Relations endpoint returns the item with empty related_items
+    response = await client.get(f"/items/{item_id}/relations")
+    assert response.status_code == 200
+    assert response.json()["related_items"] == []
+
+    # Delete
+    response = await client.delete(f"/items/{item_id}")
+    assert response.status_code == 200
+
+    response = await client.get(f"/items/{item_id}")
+    assert response.status_code == 404
+
+
+async def test_bulk_read_route_not_shadowed(client: AsyncClient, no_processing):
+    """Bulk routes must not be captured by /items/{item_id}/... (regression)."""
+    response = await client.post("/items/bulk/read", json={"ids": []})
+    assert response.status_code == 200
+
+    response = await client.post("/items/bulk/archive", json={"ids": []})
+    assert response.status_code == 200
+
+    response = await client.post("/items/bulk/delete", json={"ids": []})
+    assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Weekly
+# ---------------------------------------------------------------------------
+
+
+async def test_weekly_current_creates_summary(client: AsyncClient):
+    response = await client.get("/weekly/current")
+    assert response.status_code == 200
+    data = response.json()
+    assert "week_start" in data
+    assert "items_count" in data
+
+
+async def test_weekly_list(client: AsyncClient):
+    response = await client.get("/weekly")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
 
 # ---------------------------------------------------------------------------
