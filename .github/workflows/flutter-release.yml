@@ -39,7 +39,6 @@ jobs:
       - name: Run tests
         working-directory: app
         run: flutter test
-        continue-on-error: true
 
       - name: Build APK
         working-directory: app

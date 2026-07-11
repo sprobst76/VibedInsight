@@ -23,10 +23,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Create all tables and apply incremental column migrations."""
+    """
+    Dev/test convenience: create missing tables from the models.
+
+    Production schema management is Alembic (`alembic upgrade head`, run by
+    the container entrypoint before the app starts) — there create_all is a
+    no-op. It only takes effect on fresh dev/test databases.
+    """
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
-        # Incremental schema migrations — safe to run repeatedly
-        await conn.execute(
-            text("ALTER TABLE user_items ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 0")
-        )

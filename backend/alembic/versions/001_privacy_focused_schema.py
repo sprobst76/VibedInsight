@@ -13,7 +13,7 @@ WARNING: This migration drops and recreates content_items with a new schema.
          Existing content data will be lost!
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -22,34 +22,53 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "001_privacy"
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Upgrade to privacy-focused schema."""
+    """Upgrade to privacy-focused schema.
+
+    Works both on a legacy first-generation database (drops the old
+    integer-ID content tables) and on an empty database (fresh install):
+    drops use IF EXISTS, enums are created with checkfirst, and the topics
+    table is created if missing.
+    """
+
+    bind = op.get_bind()
 
     # =========================================================================
-    # STEP 1: Drop dependent tables and content_items
+    # STEP 1: Drop old first-generation tables (no-ops on an empty DB)
     # =========================================================================
 
-    # Drop content_topics (depends on content_items)
-    op.drop_table("content_topics")
-
-    # Drop item_relations (depends on content_items)
-    op.drop_table("item_relations")
-
-    # Drop old content_items table
-    op.drop_table("content_items")
+    op.execute("DROP TABLE IF EXISTS content_topics CASCADE")
+    op.execute("DROP TABLE IF EXISTS item_relations CASCADE")
+    op.execute("DROP TABLE IF EXISTS content_items CASCADE")
 
     # =========================================================================
-    # STEP 2: Recreate content_items with UUID and new columns
+    # STEP 2: Ensure enum types and the topics table exist
     # =========================================================================
 
-    # Use existing enum types (don't recreate)
     contenttype = postgresql.ENUM("link", "newsletter", "pdf", "note", name="contenttype", create_type=False)
     processingstatus = postgresql.ENUM("pending", "processing", "completed", "failed", name="processingstatus", create_type=False)
+    contenttype.create(bind, checkfirst=True)
+    processingstatus.create(bind, checkfirst=True)
+
+    op.execute(
+        """
+        CREATE TABLE IF NOT EXISTS topics (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_topics_name ON topics (name)")
+
+    # =========================================================================
+    # STEP 3: Create content_items with UUID and new columns
+    # =========================================================================
 
     op.create_table(
         "content_items",
@@ -94,11 +113,11 @@ def upgrade() -> None:
     # STEP 4: Recreate item_relations with UUID foreign keys
     # =========================================================================
 
-    # Use existing enum type for relation_type
     relationtype = postgresql.ENUM(
         "related", "extends", "contradicts", "similar", "references",
         name="relationtype", create_type=False
     )
+    relationtype.create(bind, checkfirst=True)
 
     op.create_table(
         "item_relations",

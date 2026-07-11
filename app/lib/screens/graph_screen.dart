@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:graphview/GraphView.dart';
 
-import '../api/api_client.dart';
 import '../models/content_item.dart';
 import '../providers/api_provider.dart';
 
@@ -128,14 +127,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? color : color.withOpacity(0.8),
+          color: isSelected ? color : color.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(12),
           border: isSelected
               ? Border.all(color: Colors.white, width: 3)
               : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 4,
               offset: const Offset(2, 2),
             ),
@@ -161,7 +160,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -269,7 +268,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     graph: graph,
                     algorithm: algorithm,
                     paint: Paint()
-                      ..color = Colors.grey.withOpacity(0.5)
+                      ..color = Colors.grey.withValues(alpha: 0.5)
                       ..strokeWidth = 2
                       ..style = PaintingStyle.stroke,
                     builder: (Node node) {
@@ -287,7 +286,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                     color: Theme.of(context).colorScheme.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, -2),
                       ),
@@ -337,7 +336,7 @@ class _GraphScreenState extends ConsumerState<GraphScreen> {
                               labelStyle: const TextStyle(fontSize: 11),
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
-                              backgroundColor: TopicColors.getColor(topic).withOpacity(0.2),
+                              backgroundColor: TopicColors.getColor(topic).withValues(alpha: 0.2),
                             );
                           }).toList(),
                         ),

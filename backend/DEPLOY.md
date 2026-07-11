@@ -9,7 +9,7 @@ This guide covers deploying VibedInsight on a VPS with existing Traefik and Olla
 - Existing setup with:
   - **Traefik** reverse proxy with HTTPS
   - **Ollama** running with llama3.2 model
-  - Docker network for shared services (e.g., `ailab_ai-lab`)
+  - Docker network for shared services (e.g., `ai-lab_ai-lab`)
 
 ## Quick Install
 
@@ -76,7 +76,7 @@ Check your existing Docker network:
 docker network ls | grep ai-lab
 ```
 
-The docker-compose.yml expects `ailab_ai-lab`. If your network has a different name, update the network section in docker-compose.yml accordingly.
+The docker-compose.yml expects `ai-lab_ai-lab`. If your network has a different name, update the network section in docker-compose.yml accordingly.
 
 ### 4. Deploy
 
@@ -205,7 +205,7 @@ docker logs traefik 2>&1 | grep vibedinsight
 
 ```bash
 # Verify Ollama is on the same network
-docker network inspect ailab_ai-lab | grep ollama
+docker network inspect ai-lab_ai-lab | grep ollama
 
 # Test from API container
 docker exec vibedinsight-api curl http://ollama:11434/api/tags

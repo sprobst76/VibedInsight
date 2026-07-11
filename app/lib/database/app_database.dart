@@ -22,7 +22,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(cachedItems, cachedItems.rating);
+          }
+        },
+      );
 
   // ============================================================
   // Items Cache Operations
@@ -46,6 +56,7 @@ class AppDatabase extends _$AppDatabase {
             isFavorite: Value(item.isFavorite),
             isRead: Value(item.isRead),
             isArchived: Value(item.isArchived),
+            rating: Value(item.rating),
             createdAt: item.createdAt,
             updatedAt: Value(item.updatedAt),
             processedAt: Value(item.processedAt),
@@ -190,6 +201,15 @@ class AppDatabase extends _$AppDatabase {
       );
     }
 
+    // Same topic filter as getCachedItems, otherwise offline page counts
+    // are wrong when a topic is selected
+    if (topicId != null) {
+      final itemsWithTopic = selectOnly(cachedItemTopics)
+        ..addColumns([cachedItemTopics.itemId])
+        ..where(cachedItemTopics.topicId.equals(topicId));
+      query = query..where(cachedItems.id.isInQuery(itemsWithTopic));
+    }
+
     final result = await query.getSingle();
     return result.read(countExp) ?? 0;
   }
@@ -225,6 +245,7 @@ class AppDatabase extends _$AppDatabase {
       isFavorite: row.isFavorite,
       isRead: row.isRead,
       isArchived: row.isArchived,
+      rating: row.rating,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       processedAt: row.processedAt,

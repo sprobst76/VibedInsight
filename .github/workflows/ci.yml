@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'rework/**']
   pull_request:
     branches: [main]
 
@@ -31,11 +31,25 @@ jobs:
       - name: Run tests
         working-directory: app
         run: flutter test
-        continue-on-error: true
 
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: vibedinsight
+          POSTGRES_PASSWORD: vibedinsight
+          POSTGRES_DB: vibedinsight
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vibedinsight"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +66,13 @@ jobs:
 
       - name: Lint with ruff
         working-directory: backend
-        run: ruff check app/
+        run: ruff check app/ tests/
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://vibedinsight:vibedinsight@localhost:5432/vibedinsight
+        run: pytest -v
 
       - name: Type check with mypy
         working-directory: backend

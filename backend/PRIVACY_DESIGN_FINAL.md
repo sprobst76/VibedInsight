@@ -1,3 +1,11 @@
+> **STATUS: NICHT UMGESETZT — HISTORISCHES DESIGN-DOKUMENT (Stand 2026-01)**
+>
+> Dieses Konzept (verschlüsselter User-Vault, Recovery-Codes, Multi-User) wurde
+> 2026-07 bewusst verworfen: Für eine self-hosted Single-User-Instanz löst es
+> kein reales Problem, und Client-seitige Verschlüsselung verhindert die
+> Server-seitige KI-Verarbeitung. Die API ist stattdessen per API-Key geschützt.
+> Der zugehörige Code wurde entfernt (Git-History: vor "Simplify to single-user").
+
 # VibedInsight - Privacy Design (Final)
 
 ## Entscheidungen

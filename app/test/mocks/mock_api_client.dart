@@ -17,7 +17,7 @@ class MockApiClient extends ApiClient {
   final List<String> methodCalls = [];
   final Map<String, dynamic> lastCallParams = {};
 
-  MockApiClient() : super();
+  MockApiClient() : super(baseUrl: 'http://mock.test');
 
   void reset() {
     shouldFail = false;
@@ -245,7 +245,7 @@ class MockApiClient extends ApiClient {
   }
 
   @override
-  Future<WeeklySummary> generateWeeklySummary(int id) async {
+  Future<WeeklySummary> generateWeeklySummary(int id, {int? topicId}) async {
     methodCalls.add('generateWeeklySummary');
     lastCallParams['id'] = id;
 

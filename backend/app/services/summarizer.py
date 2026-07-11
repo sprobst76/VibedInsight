@@ -1,6 +1,17 @@
+"""
+LLM services: summaries, topic extraction, weekly digest.
+
+Topics and the weekly digest use Ollama structured outputs (a JSON schema is
+passed as `format`), so the model is constrained to valid JSON — no more
+regex parsing of free-form LLM text.
+"""
+
 import asyncio
+import json
 import logging
+import re
 from pathlib import Path
+from typing import Any
 
 import httpx
 import ollama
@@ -19,20 +30,66 @@ MAX_RETRIES = 2
 RETRY_BACKOFF = [2.0, 5.0]  # seconds between attempts
 
 
+TOPICS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "topics": {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": 5,
+        }
+    },
+    "required": ["topics"],
+}
+
+WEEKLY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "tldr": {"type": "string"},
+        "summary": {"type": "string"},
+        "key_insights": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+        "top_topics": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
+        "topic_clusters": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "article_count": {"type": "integer"},
+                    "description": {"type": "string"},
+                },
+                "required": ["name", "article_count", "description"],
+            },
+        },
+        "connections": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
+    },
+    "required": ["tldr", "summary", "key_insights", "top_topics", "topic_clusters", "connections"],
+}
+
+
+def _ollama_client() -> ollama.AsyncClient:
+    return ollama.AsyncClient(
+        host=settings.ollama_base_url,
+        timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
+    )
+
+
 async def _ollama_chat_with_retry(
-    client: ollama.AsyncClient,
-    model: str,
     messages: list[dict],
+    format: dict | None = None,
     timeout: float = OLLAMA_TIMEOUT,
-) -> dict:
-    """Call Ollama chat with automatic retry on failure."""
+) -> str:
+    """Call Ollama chat with automatic retry on failure; returns message content."""
+    client = _ollama_client()
     last_error: Exception | None = None
     for attempt in range(MAX_RETRIES + 1):
         try:
-            return await asyncio.wait_for(
-                client.chat(model=model, messages=messages),
+            response = await asyncio.wait_for(
+                client.chat(model=settings.ollama_model, messages=messages, format=format),
                 timeout=timeout,
             )
+            return response["message"]["content"]
         except Exception as e:
             last_error = e
             if attempt < MAX_RETRIES:
@@ -52,133 +109,49 @@ def load_prompt(name: str) -> str:
     raise FileNotFoundError(f"Prompt template '{name}' not found")
 
 
-def _parse_topics_response(content: str) -> list[str]:
-    """
-    Parse LLM response to extract topics.
-
-    Handles various formats:
-    - Comma-separated: "topic1, topic2, topic3"
-    - Newline-separated: "topic1\ntopic2\ntopic3"
-    - With prefix: "Here are the topics:\ntopic1, topic2"
-    - Numbered lists: "1. topic1\n2. topic2"
-    - Bullet lists: "- topic1\n- topic2"
-    """
-    import re
-
-    text = content.strip()
-
-    # Step 1: Find the LAST colon that looks like a preamble ending
-    # Look for patterns like "topics:" or "text:" and take everything after
-    last_preamble_idx = -1
-    for match in re.finditer(r"(topic|text|following|result)s?:\s*", text, re.IGNORECASE):
-        last_preamble_idx = match.end()
-
-    if last_preamble_idx > 0:
-        text = text[last_preamble_idx:].strip()
-
-    # Step 2: Split by commas first (if present)
-    # This handles "topic1, topic2, topic3" format
-    if "," in text:
-        raw_topics = [t.strip() for t in text.split(",") if t.strip()]
-    else:
-        # Split by newlines for "topic1\ntopic2\ntopic3" format
-        raw_topics = [line.strip() for line in text.split("\n") if line.strip()]
-
-    topics = []
-    for topic in raw_topics:
-        # Remove numbering (1., 2., etc.) and bullets (-, *)
-        cleaned = topic.strip()
-        if cleaned and cleaned[0].isdigit():
-            cleaned = re.sub(r"^\d+[\.\)]\s*", "", cleaned)
-        cleaned = cleaned.lstrip("-*•").strip()
-        if cleaned:
-            topics.append(cleaned)
-
-    # Clean up topics
-    result = []
-    # Words that indicate this is preamble, not a topic
-    preamble_words = {"here", "are", "relevant", "extracted", "following", "text"}
-
-    for topic in topics:
-        # Lowercase and truncate to 100 chars (DB limit)
-        topic = topic.lower().strip()
-        # Remove quotes if present
-        topic = topic.strip("\"'")
-        # Remove newlines within topic
-        topic = topic.replace("\n", " ").strip()
-
-        # Skip if too short
-        if len(topic) < 2:
-            continue
-
-        # Skip if topic looks like preamble
-        if "topic" in topic or "extract" in topic:
-            continue
-
-        # Skip single-word preamble fragments
-        words = topic.split()
-        if len(words) == 1 and words[0] in preamble_words:
-            continue
-
-        # Skip if starts with preamble phrase
-        if topic.startswith("here are") or topic.startswith("the following"):
-            continue
-
-        result.append(topic[:100])
-
-    return result
-
-
-async def generate_summary(text: str, language: str = "auto") -> str:
-    """
-    Generate a summary of the given text using Ollama.
-    """
-    prompt_template = load_prompt("summary")
-    prompt = prompt_template.format(text=text[:8000])  # Limit input length
-
+async def generate_summary(text: str) -> str:
+    """Generate a summary of the given text using Ollama."""
+    prompt = load_prompt("summary").format(text=text[:8000])
     logger.info(f"Calling Ollama at {settings.ollama_base_url} with model {settings.ollama_model}")
+    return await _ollama_chat_with_retry([{"role": "user", "content": prompt}])
 
-    # Create client with custom timeout
-    client = ollama.AsyncClient(
-        host=settings.ollama_base_url,
-        timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
+
+def normalize_topic(raw: str) -> str | None:
+    """Normalize a topic name: lowercase, trimmed, no markup, sane length."""
+    topic = raw.strip().lower().replace("\n", " ")
+    topic = re.sub(r"\s+", " ", topic)
+    topic = topic.strip("-*• .\"'")
+    if len(topic) < 2 or len(topic) > 100:
+        return None
+    # More than 4 words is a sentence, not a topic
+    if len(topic.split()) > 4:
+        return None
+    return topic
+
+
+async def extract_topics(text: str) -> list[str]:
+    """Extract normalized topics from text via structured output."""
+    prompt = load_prompt("topics").format(text=text[:4000])
+    content = await _ollama_chat_with_retry(
+        [{"role": "user", "content": prompt}],
+        format=TOPICS_SCHEMA,
     )
 
-    response = await _ollama_chat_with_retry(
-        client,
-        model=settings.ollama_model,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    logger.info("Ollama summary response received")
-    return response["message"]["content"]
+    try:
+        raw_topics = json.loads(content).get("topics", [])
+    except (json.JSONDecodeError, AttributeError) as e:
+        logger.error(f"Topic extraction returned invalid JSON: {e}; content: {content[:200]}")
+        return []
 
+    topics: list[str] = []
+    for raw in raw_topics:
+        if not isinstance(raw, str):
+            continue
+        topic = normalize_topic(raw)
+        if topic and topic not in topics:
+            topics.append(topic)
 
-async def extract_topics(text: str, existing_topics: list[str] | None = None) -> list[str]:
-    """
-    Extract topics/tags from text using Ollama.
-    Note: existing_topics parameter is kept for backwards compatibility but ignored.
-    """
-    prompt_template = load_prompt("topics")
-    prompt = prompt_template.format(text=text[:4000])
-
-    logger.info("Calling Ollama for topic extraction")
-
-    # Create client with custom timeout
-    client = ollama.AsyncClient(
-        host=settings.ollama_base_url,
-        timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
-    )
-
-    response = await _ollama_chat_with_retry(
-        client,
-        model=settings.ollama_model,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    logger.info("Ollama topics response received")
-
-    content = response["message"]["content"]
-    topics = _parse_topics_response(content)
-    return list(set(topics))[:10]  # Max 10 topics
+    return topics[:5]
 
 
 def _build_topics_summary(topics_by_item: dict[str, list[str]]) -> str:
@@ -186,19 +159,13 @@ def _build_topics_summary(topics_by_item: dict[str, list[str]]) -> str:
     if not topics_by_item:
         return "Keine Themen zugewiesen."
 
-    # Count topic occurrences
     topic_counts: dict[str, int] = {}
     for topics in topics_by_item.values():
         for topic in topics:
             topic_counts[topic] = topic_counts.get(topic, 0) + 1
 
-    # Sort by count
     sorted_topics = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)
-
-    lines = []
-    for topic, count in sorted_topics[:15]:  # Limit to 15 topics
-        lines.append(f"- {topic}: {count} Artikel")
-
+    lines = [f"- {topic}: {count} Artikel" for topic, count in sorted_topics[:15]]
     return "\n".join(lines) if lines else "Keine Themen zugewiesen."
 
 
@@ -210,12 +177,11 @@ def _build_relations_summary(relations: list[dict]) -> str:
     lines = []
     seen_pairs = set()
 
-    for rel in relations[:20]:  # Limit to 20 relations
+    for rel in relations[:20]:
         source = rel.get("source_title", "Unbekannt")
         target = rel.get("target_title", "Unbekannt")
         rel_type = rel.get("relation_type", "related")
 
-        # Avoid duplicates (A-B = B-A)
         pair_key = tuple(sorted([source, target]))
         if pair_key in seen_pairs:
             continue
@@ -225,7 +191,7 @@ def _build_relations_summary(relations: list[dict]) -> str:
             "related": "verwandt mit",
             "extends": "erweitert",
             "contradicts": "widerspricht",
-            "similar": "aehnlich zu",
+            "similar": "ähnlich zu",
             "references": "referenziert",
         }.get(rel_type, "verbunden mit")
 
@@ -238,158 +204,56 @@ async def generate_weekly_summary(
     items_content: list[dict],
     topics_by_item: dict[str, list[str]] | None = None,
     relations: list[dict] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Generate a weekly summary from a list of content items.
 
-    Args:
-        items_content: List of dicts with 'title' and 'summary' keys
-        topics_by_item: Dict mapping item titles to their topics
-        relations: List of relation dicts with source_title, target_title, relation_type
-
-    Returns:
-        Dict with 'tldr', 'summary', 'key_insights', 'top_topics', 'topic_clusters', 'connections'
+    Returns a dict with tldr, summary, key_insights, top_topics,
+    topic_clusters and connections (all guaranteed present).
     """
-    # Build content string from items
     content_parts = []
-    for item in items_content[:20]:  # Limit to 20 items
+    for item in items_content[:20]:
         title = item.get("title", "Untitled")
         summary = item.get("summary", "No summary")
         content_parts.append(f"### {title}\n{summary}\n")
-
     content = "\n".join(content_parts)
 
-    # Build topics and relations summaries
-    topics_summary = _build_topics_summary(topics_by_item or {})
-    relations_summary = _build_relations_summary(relations or [])
-
-    prompt_template = load_prompt("weekly_summary")
-    prompt = prompt_template.format(
+    prompt = load_prompt("weekly_summary").format(
         content=content[:10000],
-        topics_summary=topics_summary,
-        relations_summary=relations_summary,
+        topics_summary=_build_topics_summary(topics_by_item or {}),
+        relations_summary=_build_relations_summary(relations or []),
     )
 
-    logger.info("Generating weekly summary with Ollama")
-
-    client = ollama.AsyncClient(
-        host=settings.ollama_base_url,
-        timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=30.0),
+    logger.info("Generating weekly summary with Ollama (structured output)")
+    raw = await _ollama_chat_with_retry(
+        [{"role": "user", "content": prompt}],
+        format=WEEKLY_SCHEMA,
     )
 
-    response = await _ollama_chat_with_retry(
-        client,
-        model=settings.ollama_model,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    logger.info("Weekly summary response received")
+    parsed = json.loads(raw)
 
-    response_content = response["message"]["content"]
-    logger.info(f"Raw LLM response (first 2000 chars): {response_content[:2000]}")
-    result = _parse_weekly_summary_response(response_content)
-    logger.info(f"Parsed result keys: {list(result.keys())}, tldr length: {len(result.get('tldr', ''))}, summary length: {len(result.get('summary', ''))}")
-    return result
+    def str_list(values: Any, limit: int) -> list[str]:
+        if not isinstance(values, list):
+            return []
+        return [v.strip() for v in values if isinstance(v, str) and v.strip()][:limit]
 
-
-def _parse_weekly_summary_response(content: str) -> dict:
-    """Parse the structured response from the weekly summary prompt."""
-    import re
-
-    result = {
-        "tldr": "",
-        "summary": "",
-        "key_insights": [],
-        "top_topics": [],
-        "topic_clusters": [],
-        "connections": [],
-    }
-
-    current_section = None
-    summary_lines = []
-    tldr_lines = []
-    cluster_lines = []
-    connection_lines = []
-
-    # Helper to detect section headers (case-insensitive, flexible format)
-    def detect_section(line: str) -> str | None:
-        line_lower = line.lower().strip()
-        # Remove markdown formatting
-        line_clean = re.sub(r'^[#*]+\s*', '', line_lower).strip()
-        line_clean = re.sub(r'\*+$', '', line_clean).strip()
-
-        if 'tl;dr' in line_clean or 'tldr' in line_clean:
-            return "tldr"
-        elif 'themen-cluster' in line_clean or 'themencluster' in line_clean or 'topic cluster' in line_clean:
-            return "clusters"
-        elif 'verbindung' in line_clean or 'connection' in line_clean:
-            return "connections"
-        elif 'zusammenfassung' in line_clean or 'summary' in line_clean:
-            return "summary"
-        elif 'key insight' in line_clean or 'erkenntnisse' in line_clean:
-            return "insights"
-        elif 'top topic' in line_clean or 'hauptthemen' in line_clean:
-            return "topics"
-        return None
-
-    for line in content.split("\n"):
-        line_stripped = line.strip()
-
-        # Detect section headers
-        section = detect_section(line_stripped)
-        if section:
-            current_section = section
-            # Handle inline content after colon
-            if ':' in line_stripped:
-                rest = line_stripped.split(':', 1)[1].strip()
-                if rest and current_section == "tldr":
-                    tldr_lines.append(rest)
+    clusters = []
+    for cluster in parsed.get("topic_clusters", []) or []:
+        if not isinstance(cluster, dict) or not cluster.get("name"):
             continue
+        clusters.append(
+            {
+                "name": str(cluster.get("name", "")).strip(),
+                "article_count": int(cluster.get("article_count", 0) or 0),
+                "description": str(cluster.get("description", "")).strip(),
+            }
+        )
 
-        # Collect content based on current section
-        if current_section == "tldr" and line_stripped:
-            tldr_lines.append(line_stripped)
-        elif current_section == "clusters" and line_stripped:
-            cluster_lines.append(line_stripped)
-        elif current_section == "connections" and line_stripped:
-            # Accept lines with or without leading dash
-            conn = line_stripped.lstrip('-•*').strip()
-            if conn:
-                connection_lines.append(conn)
-        elif current_section == "summary" and line_stripped:
-            summary_lines.append(line_stripped)
-        elif current_section == "insights" and line_stripped:
-            # Accept lines with or without leading dash
-            insight = line_stripped.lstrip('-•*').strip()
-            if insight and not insight.lower().startswith('key'):
-                result["key_insights"].append(insight)
-        elif current_section == "topics" and line_stripped:
-            # Parse comma-separated topics
-            topics = [t.strip().lstrip('-•*').strip() for t in line_stripped.split(",") if t.strip()]
-            result["top_topics"].extend(topics)
-
-    # Process TL;DR
-    result["tldr"] = " ".join(tldr_lines)[:500] if tldr_lines else ""
-
-    # Process summary
-    result["summary"] = "\n\n".join(summary_lines)
-
-    # Parse topic clusters - format: **Name** (X Artikel): Beschreibung
-    cluster_pattern = r"\*\*(.+?)\*\*\s*\((\d+)\s*Artikel\):\s*(.+)"
-    for line in cluster_lines:
-        match = re.match(cluster_pattern, line)
-        if match:
-            result["topic_clusters"].append({
-                "name": match.group(1).strip(),
-                "article_count": int(match.group(2)),
-                "description": match.group(3).strip(),
-            })
-
-    # Process connections
-    result["connections"] = connection_lines[:10]  # Limit to 10
-
-    # Limits
-    result["top_topics"] = result["top_topics"][:10]
-    result["key_insights"] = result["key_insights"][:5]
-    result["topic_clusters"] = result["topic_clusters"][:8]
-
-    return result
+    return {
+        "tldr": str(parsed.get("tldr", "")).strip()[:500],
+        "summary": str(parsed.get("summary", "")).strip(),
+        "key_insights": str_list(parsed.get("key_insights"), 5),
+        "top_topics": str_list(parsed.get("top_topics"), 10),
+        "topic_clusters": clusters[:8],
+        "connections": str_list(parsed.get("connections"), 10),
+    }

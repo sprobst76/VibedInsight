@@ -73,7 +73,7 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
       if (file.type == SharedMediaType.text || file.type == SharedMediaType.url) {
         // Try to find URL in either path or message
         // Chrome shares URL in path, other apps might use message
-        final combinedText = '${file.path ?? ''} ${file.message ?? ''}';
+        final combinedText = '${file.path} ${file.message ?? ''}';
         final content = SharedContent(text: combinedText);
         final url = content.extractUrl();
 

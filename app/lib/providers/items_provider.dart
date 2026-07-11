@@ -47,12 +47,14 @@ class ItemsState {
     this.hasPendingActions = false,
   });
 
+  static const _unsetError = Object();
+
   ItemsState copyWith({
     List<ContentItem>? items,
     bool? isLoading,
     bool? hasMore,
     int? currentPage,
-    String? error,
+    Object? error = _unsetError,
     String? searchQuery,
     int? selectedTopicId,
     bool? favoritesOnly,
@@ -73,7 +75,8 @@ class ItemsState {
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       currentPage: currentPage ?? this.currentPage,
-      error: error,
+      // Sentinel: omitting `error` keeps the current value; passing null clears it
+      error: identical(error, _unsetError) ? this.error : error as String?,
       searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
       selectedTopicId: clearTopic ? null : (selectedTopicId ?? this.selectedTopicId),
       favoritesOnly: favoritesOnly ?? this.favoritesOnly,
@@ -112,6 +115,13 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
         _syncPendingActions();
       }
     });
+  }
+
+  ContentItem? _findItem(int id) {
+    for (final item in state.items) {
+      if (item.id == id) return item;
+    }
+    return null;
   }
 
   bool get _hasPendingOrProcessingItems => state.items.any(
@@ -257,6 +267,22 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     loadItems(refresh: true);
   }
 
+  /// Reset all filters in one state update and reload once.
+  /// (Calling the individual setters in sequence races: the first one
+  /// starts loading and the rest are ignored by the isLoading guard.)
+  Future<void> resetFilters() async {
+    if (!state.hasFilters) return;
+
+    state = state.copyWith(
+      clearSearch: true,
+      clearTopic: true,
+      favoritesOnly: false,
+      unreadOnly: false,
+      archivedOnly: false,
+    );
+    await loadItems(refresh: true);
+  }
+
   Future<void> setSort(SortField sortBy, SortOrder sortOrder) async {
     if (sortBy == state.sortBy && sortOrder == state.sortOrder) return;
 
@@ -296,7 +322,8 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   }
 
   Future<void> toggleFavorite(int id) async {
-    final currentItem = state.items.firstWhere((item) => item.id == id);
+    final currentItem = _findItem(id);
+    if (currentItem == null) return;
     final currentValue = currentItem.isFavorite;
 
     // Optimistic update
@@ -329,7 +356,8 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   }
 
   Future<void> toggleRead(int id) async {
-    final currentItem = state.items.firstWhere((item) => item.id == id);
+    final currentItem = _findItem(id);
+    if (currentItem == null) return;
     final currentValue = currentItem.isRead;
 
     // Optimistic update
@@ -362,7 +390,8 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   }
 
   Future<void> toggleArchive(int id) async {
-    final currentItem = state.items.firstWhere((item) => item.id == id);
+    final currentItem = _findItem(id);
+    if (currentItem == null) return;
     final currentValue = currentItem.isArchived;
 
     // Optimistic update
@@ -401,7 +430,9 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   }
 
   Future<void> setRating(int id, int rating) async {
-    final originalRating = state.items.firstWhere((item) => item.id == id).rating;
+    final originalItem = _findItem(id);
+    if (originalItem == null) return;
+    final originalRating = originalItem.rating;
 
     // Optimistic update
     state = state.copyWith(
@@ -471,7 +502,8 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
 
   Future<void> deleteItem(int id) async {
     // Optimistic removal
-    final removedItem = state.items.firstWhere((item) => item.id == id);
+    final removedItem = _findItem(id);
+    if (removedItem == null) return;
     state = state.copyWith(
       items: state.items.where((item) => item.id != id).toList(),
     );

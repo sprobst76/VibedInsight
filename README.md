@@ -27,16 +27,17 @@ Think of it as a self-hosted alternative to Raindrop.io + Readwise, with local A
 - **Weekly Digest** - AI-generated weekly summary with key insights across all saved articles
 - **Rate** - 1–5 star rating for items
 - **Export** - Obsidian-compatible Markdown ZIP export
-- **Knowledge Graph** - Automatic relation detection between articles via shared topics
-- **Privacy** - Self-hosted, your data stays on your server, no tracking
+- **Knowledge Graph** - Semantic relations between articles (pgvector embeddings + shared topics)
+- **Weekly Auto-Digest** - Generated automatically every Sunday evening
+- **Privacy** - Self-hosted, your data stays on your server, API-key protected, no tracking
 
 ## Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │  Flutter App    │────▶│  FastAPI        │────▶│  PostgreSQL     │
-│  (Android/iOS)  │     │  Backend        │     │  Database       │
-└─────────────────┘     └────────┬────────┘     └─────────────────┘
+│  (Android)      │ API │  Backend        │     │  + pgvector     │
+└─────────────────┘ Key └────────┬────────┘     └─────────────────┘
                                  │
                                  ▼
                         ┌─────────────────┐
@@ -63,10 +64,10 @@ cd vibedinsight/backend
 
 # Configure
 cp .env.example .env
-nano .env  # Set DOMAIN and POSTGRES_PASSWORD
+nano .env  # Set DOMAIN, POSTGRES_PASSWORD and API_KEY
 
-# Deploy
-docker compose up -d
+# Deploy (runs migrations automatically on start)
+docker compose up -d --build
 
 # Verify
 curl https://insight.lab.YOUR_DOMAIN/health
@@ -94,16 +95,18 @@ flutter build apk --release
 |----------|-------------|---------|
 | `DOMAIN` | Your domain (for Traefik) | - |
 | `POSTGRES_PASSWORD` | Database password | - |
-| `OLLAMA_MODEL` | Ollama model to use | `llama3.2` |
+| `API_KEY` | Shared secret; all endpoints except `/health` require the `X-API-Key` header | - |
+| `OLLAMA_MODEL` | Ollama chat model | `llama3.2` |
+| `OLLAMA_EMBEDDING_MODEL` | Ollama embedding model (1024-dim) | `mxbai-embed-large` |
+| `ALLOW_PRIVATE_URLS` | Allow saving URLs on private networks | `false` |
+| `WEEKLY_AUTO_GENERATE` | Auto-generate digest on Sunday evenings | `true` |
 | `TZ` | Timezone | `Europe/Berlin` |
 
 ### App Configuration
 
-Edit `app/lib/config/api_config.dart` to set your backend URL:
-
-```dart
-static const String productionUrl = 'https://insight.lab.YOUR_DOMAIN';
-```
+Open **Einstellungen** in the app and enter your server URL and the API key
+from your backend `.env`. (The compiled-in default URL lives in
+`app/lib/config/api_config.dart`.)
 
 ## API Endpoints
 
@@ -118,7 +121,7 @@ static const String productionUrl = 'https://insight.lab.YOUR_DOMAIN';
 | `POST` | `/ingest/text` | Ingest raw text |
 | `GET` | `/topics` | List all topics |
 | `GET` | `/weekly` | List weekly summaries |
-| `POST` | `/weekly/generate` | Generate weekly AI summary |
+| `POST` | `/weekly/generate-current` | Generate weekly AI summary |
 | `GET` | `/export/markdown` | Download Markdown ZIP |
 | `GET` | `/items/graph/data` | Knowledge graph data |
 
@@ -129,9 +132,9 @@ Full API documentation at `/docs` (Swagger UI).
 ### Backend
 - Python 3.12
 - FastAPI
-- SQLAlchemy 2.0 (async)
-- PostgreSQL 16
-- Ollama (llama3.2)
+- SQLAlchemy 2.0 (async) + Alembic
+- PostgreSQL 16 + pgvector
+- Ollama (llama3.2 + mxbai-embed-large)
 - trafilatura (web scraping)
 
 ### Mobile

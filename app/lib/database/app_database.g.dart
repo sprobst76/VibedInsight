@@ -119,6 +119,16 @@ class $CachedItemsTable extends CachedItems
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
+  @override
+  late final GeneratedColumn<int> rating = GeneratedColumn<int>(
+    'rating',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -175,6 +185,7 @@ class $CachedItemsTable extends CachedItems
     isFavorite,
     isRead,
     isArchived,
+    rating,
     createdAt,
     updatedAt,
     processedAt,
@@ -254,6 +265,12 @@ class $CachedItemsTable extends CachedItems
       context.handle(
         _isArchivedMeta,
         isArchived.isAcceptableOrUnknown(data['is_archived']!, _isArchivedMeta),
+      );
+    }
+    if (data.containsKey('rating')) {
+      context.handle(
+        _ratingMeta,
+        rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
       );
     }
     if (data.containsKey('created_at')) {
@@ -336,6 +353,10 @@ class $CachedItemsTable extends CachedItems
         DriftSqlType.bool,
         data['${effectivePrefix}is_archived'],
       )!,
+      rating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rating'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -372,6 +393,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
   final bool isFavorite;
   final bool isRead;
   final bool isArchived;
+  final int rating;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? processedAt;
@@ -387,6 +409,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
     required this.isFavorite,
     required this.isRead,
     required this.isArchived,
+    required this.rating,
     required this.createdAt,
     this.updatedAt,
     this.processedAt,
@@ -413,6 +436,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
     map['is_favorite'] = Variable<bool>(isFavorite);
     map['is_read'] = Variable<bool>(isRead);
     map['is_archived'] = Variable<bool>(isArchived);
+    map['rating'] = Variable<int>(rating);
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -442,6 +466,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
       isFavorite: Value(isFavorite),
       isRead: Value(isRead),
       isArchived: Value(isArchived),
+      rating: Value(rating),
       createdAt: Value(createdAt),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
@@ -469,6 +494,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       isRead: serializer.fromJson<bool>(json['isRead']),
       isArchived: serializer.fromJson<bool>(json['isArchived']),
+      rating: serializer.fromJson<int>(json['rating']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       processedAt: serializer.fromJson<DateTime?>(json['processedAt']),
@@ -489,6 +515,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'isRead': serializer.toJson<bool>(isRead),
       'isArchived': serializer.toJson<bool>(isArchived),
+      'rating': serializer.toJson<int>(rating),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'processedAt': serializer.toJson<DateTime?>(processedAt),
@@ -507,6 +534,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
     bool? isFavorite,
     bool? isRead,
     bool? isArchived,
+    int? rating,
     DateTime? createdAt,
     Value<DateTime?> updatedAt = const Value.absent(),
     Value<DateTime?> processedAt = const Value.absent(),
@@ -522,6 +550,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
     isFavorite: isFavorite ?? this.isFavorite,
     isRead: isRead ?? this.isRead,
     isArchived: isArchived ?? this.isArchived,
+    rating: rating ?? this.rating,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
     processedAt: processedAt.present ? processedAt.value : this.processedAt,
@@ -545,6 +574,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
       isArchived: data.isArchived.present
           ? data.isArchived.value
           : this.isArchived,
+      rating: data.rating.present ? data.rating.value : this.rating,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       processedAt: data.processedAt.present
@@ -567,6 +597,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
           ..write('isFavorite: $isFavorite, ')
           ..write('isRead: $isRead, ')
           ..write('isArchived: $isArchived, ')
+          ..write('rating: $rating, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('processedAt: $processedAt, ')
@@ -587,6 +618,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
     isFavorite,
     isRead,
     isArchived,
+    rating,
     createdAt,
     updatedAt,
     processedAt,
@@ -606,6 +638,7 @@ class CachedItem extends DataClass implements Insertable<CachedItem> {
           other.isFavorite == this.isFavorite &&
           other.isRead == this.isRead &&
           other.isArchived == this.isArchived &&
+          other.rating == this.rating &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.processedAt == this.processedAt &&
@@ -623,6 +656,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
   final Value<bool> isFavorite;
   final Value<bool> isRead;
   final Value<bool> isArchived;
+  final Value<int> rating;
   final Value<DateTime> createdAt;
   final Value<DateTime?> updatedAt;
   final Value<DateTime?> processedAt;
@@ -638,6 +672,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
     this.isFavorite = const Value.absent(),
     this.isRead = const Value.absent(),
     this.isArchived = const Value.absent(),
+    this.rating = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.processedAt = const Value.absent(),
@@ -654,6 +689,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
     this.isFavorite = const Value.absent(),
     this.isRead = const Value.absent(),
     this.isArchived = const Value.absent(),
+    this.rating = const Value.absent(),
     required DateTime createdAt,
     this.updatedAt = const Value.absent(),
     this.processedAt = const Value.absent(),
@@ -673,6 +709,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
     Expression<bool>? isFavorite,
     Expression<bool>? isRead,
     Expression<bool>? isArchived,
+    Expression<int>? rating,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? processedAt,
@@ -689,6 +726,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (isRead != null) 'is_read': isRead,
       if (isArchived != null) 'is_archived': isArchived,
+      if (rating != null) 'rating': rating,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (processedAt != null) 'processed_at': processedAt,
@@ -707,6 +745,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
     Value<bool>? isFavorite,
     Value<bool>? isRead,
     Value<bool>? isArchived,
+    Value<int>? rating,
     Value<DateTime>? createdAt,
     Value<DateTime?>? updatedAt,
     Value<DateTime?>? processedAt,
@@ -723,6 +762,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
       isFavorite: isFavorite ?? this.isFavorite,
       isRead: isRead ?? this.isRead,
       isArchived: isArchived ?? this.isArchived,
+      rating: rating ?? this.rating,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       processedAt: processedAt ?? this.processedAt,
@@ -763,6 +803,9 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
     if (isArchived.present) {
       map['is_archived'] = Variable<bool>(isArchived.value);
     }
+    if (rating.present) {
+      map['rating'] = Variable<int>(rating.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -791,6 +834,7 @@ class CachedItemsCompanion extends UpdateCompanion<CachedItem> {
           ..write('isFavorite: $isFavorite, ')
           ..write('isRead: $isRead, ')
           ..write('isArchived: $isArchived, ')
+          ..write('rating: $rating, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('processedAt: $processedAt, ')
@@ -1969,6 +2013,7 @@ typedef $$CachedItemsTableCreateCompanionBuilder =
       Value<bool> isFavorite,
       Value<bool> isRead,
       Value<bool> isArchived,
+      Value<int> rating,
       required DateTime createdAt,
       Value<DateTime?> updatedAt,
       Value<DateTime?> processedAt,
@@ -1986,6 +2031,7 @@ typedef $$CachedItemsTableUpdateCompanionBuilder =
       Value<bool> isFavorite,
       Value<bool> isRead,
       Value<bool> isArchived,
+      Value<int> rating,
       Value<DateTime> createdAt,
       Value<DateTime?> updatedAt,
       Value<DateTime?> processedAt,
@@ -2076,6 +2122,11 @@ class $$CachedItemsTableFilterComposer
 
   ColumnFilters<bool> get isArchived => $composableBuilder(
     column: $table.isArchived,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rating => $composableBuilder(
+    column: $table.rating,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2184,6 +2235,11 @@ class $$CachedItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -2249,6 +2305,9 @@ class $$CachedItemsTableAnnotationComposer
     column: $table.isArchived,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get rating =>
+      $composableBuilder(column: $table.rating, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -2328,6 +2387,7 @@ class $$CachedItemsTableTableManager
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isRead = const Value.absent(),
                 Value<bool> isArchived = const Value.absent(),
+                Value<int> rating = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<DateTime?> processedAt = const Value.absent(),
@@ -2343,6 +2403,7 @@ class $$CachedItemsTableTableManager
                 isFavorite: isFavorite,
                 isRead: isRead,
                 isArchived: isArchived,
+                rating: rating,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 processedAt: processedAt,
@@ -2360,6 +2421,7 @@ class $$CachedItemsTableTableManager
                 Value<bool> isFavorite = const Value.absent(),
                 Value<bool> isRead = const Value.absent(),
                 Value<bool> isArchived = const Value.absent(),
+                Value<int> rating = const Value.absent(),
                 required DateTime createdAt,
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<DateTime?> processedAt = const Value.absent(),
@@ -2375,6 +2437,7 @@ class $$CachedItemsTableTableManager
                 isFavorite: isFavorite,
                 isRead: isRead,
                 isArchived: isArchived,
+                rating: rating,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 processedAt: processedAt,

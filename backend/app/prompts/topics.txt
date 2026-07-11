@@ -1,13 +1,10 @@
-Extract 3-5 relevant topics from the following text.
+Extrahiere 3-5 Themen (Topics) aus dem folgenden Text.
 
-Rules:
-- Return ONLY a comma-separated list, nothing else
-- Topics must be lowercase
-- Topics should be 1-3 words maximum
-- Only include topics DIRECTLY mentioned in the text
-- Do NOT invent or hallucinate topics
+Regeln:
+- Themen auf DEUTSCH, kleingeschrieben, maximal 3 Wörter
+- Nur Themen, die im Text tatsächlich vorkommen — nichts erfinden
+- Konkrete Themen bevorzugen ("machine learning" statt "technologie")
+- Antworte als JSON: {{"topics": ["thema1", "thema2", "thema3"]}}
 
 TEXT:
 {text}
-
-TOPICS:
