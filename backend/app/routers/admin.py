@@ -154,12 +154,36 @@ async def rebuild_all_relations(
     }
 
 
+async def _run_embedding_backfill(item_ids: list[uuid.UUID], batch_id: str):
+    """Generate embeddings item by item, committing each one."""
+    status = _batch_status.get(batch_id, {"total": len(item_ids), "done": 0, "failed": 0})
+    for item_id in item_ids:
+        try:
+            async with async_session_maker() as db:
+                item = await db.get(ContentItem, item_id)
+                if item and await update_embedding(item, db):
+                    await db.commit()
+                    status["done"] += 1
+                else:
+                    status["failed"] += 1
+        except Exception as e:
+            logger.error(f"Embedding failed for {item_id}: {e}")
+            status["failed"] += 1
+        await asyncio.sleep(0.2)
+    logger.info(f"Embedding backfill {batch_id} finished: {status}")
+
+
 @router.post("/embeddings/generate-all")
 async def generate_all_embeddings(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Backfill embeddings for all completed items that don't have one yet."""
+    """
+    Backfill embeddings for completed items that don't have one yet.
+
+    Runs as a background task (a synchronous request would exceed proxy
+    timeouts for large libraries); check progress via /admin/reprocess-status.
+    """
     if not await check_embedding_model_available():
         raise HTTPException(
             status_code=400,
@@ -170,34 +194,26 @@ async def generate_all_embeddings(
         )
 
     result = await db.execute(
-        select(ContentItem)
+        select(ContentItem.id)
         .outerjoin(ContentEmbedding, ContentEmbedding.content_id == ContentItem.id)
         .where(
             ContentItem.status == ProcessingStatus.COMPLETED,
             ContentEmbedding.id.is_(None),
         )
     )
-    items = result.scalars().all()
+    item_ids = [row[0] for row in result.all()]
 
-    success = 0
-    failed = 0
-    for item in items:
-        try:
-            if await update_embedding(item, db):
-                success += 1
-            else:
-                failed += 1
-        except Exception as e:
-            logger.error(f"Embedding failed for {item.id}: {e}")
-            failed += 1
-        await asyncio.sleep(0.2)
-    await db.commit()
+    if not item_ids:
+        return {"message": "All completed items already have embeddings", "total": 0}
+
+    batch_id = _new_batch(len(item_ids))
+    task = asyncio.create_task(_run_embedding_backfill(item_ids, batch_id))
+    task.add_done_callback(lambda t: t.exception())
 
     return {
-        "message": f"Generated embeddings for {success} items ({failed} failed)",
-        "success": success,
-        "failed": failed,
-        "total": len(items),
+        "message": f"Embedding backfill started for {len(item_ids)} items",
+        "batch_id": batch_id,
+        "total": len(item_ids),
     }
 
 
