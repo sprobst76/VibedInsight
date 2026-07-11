@@ -229,6 +229,33 @@ async def check_embeddings_ready(user: User = Depends(get_current_user)):
     }
 
 
+@router.get("/ollama/check")
+async def check_ollama(user: User = Depends(get_current_user)):
+    """List Ollama models and whether the configured ones are available."""
+    import httpx
+    import ollama
+
+    client = ollama.AsyncClient(
+        host=settings.ollama_base_url, timeout=httpx.Timeout(10.0, connect=5.0)
+    )
+    try:
+        response = await client.list()
+        available = [m.model for m in response.models]
+    except Exception as e:
+        return {"error": f"Ollama unreachable: {e}", "base_url": settings.ollama_base_url}
+
+    def has(name: str) -> bool:
+        return name in available or f"{name}:latest" in available
+
+    return {
+        "available_models": available,
+        "chat_model": settings.ollama_model,
+        "chat_model_available": has(settings.ollama_model),
+        "embedding_model": settings.ollama_embedding_model,
+        "embedding_model_available": has(settings.ollama_embedding_model),
+    }
+
+
 @router.get("/stats")
 async def get_stats(
     user: User = Depends(get_current_user),
