@@ -72,7 +72,14 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://vibedinsight:vibedinsight@localhost:5432/vibedinsight
-        run: pytest -v
+        run: pytest -v 2>&1 | tee pytest-output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-pytest-output
+          path: backend/pytest-output.txt
 
       - name: Type check with mypy
         working-directory: backend

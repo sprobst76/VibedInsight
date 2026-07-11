@@ -20,6 +20,30 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # The base table historically came from init_db()/create_all and was
+    # never created by a migration — create it here so the chain also works
+    # on an empty database (pre-003 shape; the new columns are added below).
+    op.execute(
+        """
+        CREATE TABLE IF NOT EXISTS weekly_summaries (
+            id SERIAL PRIMARY KEY,
+            week_start TIMESTAMP NOT NULL,
+            week_end TIMESTAMP NOT NULL,
+            summary TEXT,
+            key_insights TEXT,
+            top_topics TEXT,
+            items_count INTEGER NOT NULL DEFAULT 0,
+            items_processed INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            generated_at TIMESTAMP
+        )
+        """
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_weekly_summaries_week_start "
+        "ON weekly_summaries (week_start)"
+    )
+
     # Add user_id column (nullable at first for existing rows)
     op.add_column(
         "weekly_summaries",
