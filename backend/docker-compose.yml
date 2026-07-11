@@ -59,7 +59,9 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
       - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-mxbai-embed-large}
-      - API_KEY=${API_KEY:?ENV_VAR_REQUIRED}
+      # WICHTIG: API_KEY in .env setzen — ohne Key läuft die API ungeschützt
+      # (Übergangsweise optional, damit Bestands-Deploys nicht hart scheitern)
+      - API_KEY=${API_KEY:-}
       - ALLOW_PRIVATE_URLS=${ALLOW_PRIVATE_URLS:-false}
       - WEEKLY_AUTO_GENERATE=${WEEKLY_AUTO_GENERATE:-true}
       - DEBUG=false
