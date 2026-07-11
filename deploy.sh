@@ -124,10 +124,15 @@ update() {
         log_warn "PostgreSQL not reachable — skipping backup"
     fi
 
-    # Pull latest changes
+    # Sync to origin/main — this checkout is a deploy target, local edits
+    # must never block a deploy (they blocked deploys via 'git pull' before)
     cd "$INSTALL_DIR"
-    log_info "Pulling latest changes..."
-    git pull
+    log_info "Syncing to origin/main..."
+    if ! git diff --quiet; then
+        log_warn "Discarding local changes: $(git diff --name-only | tr '\n' ' ')"
+    fi
+    git fetch origin
+    git reset --hard origin/main
 
     # Rebuild and restart (postgres too, in case its image changed;
     # the api entrypoint runs `alembic upgrade head` before starting)
