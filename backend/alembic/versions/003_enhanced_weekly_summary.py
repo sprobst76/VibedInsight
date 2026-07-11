@@ -8,8 +8,6 @@ Create Date: 2025-01-15
 
 from collections.abc import Sequence
 
-import sqlalchemy as sa
-
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -44,41 +42,33 @@ def upgrade() -> None:
         "ON weekly_summaries (week_start)"
     )
 
-    # Add user_id column (nullable at first for existing rows)
-    op.add_column(
-        "weekly_summaries",
-        sa.Column("user_id", sa.Integer(), nullable=True),
+    # All additions use IF NOT EXISTS: legacy create_all-bootstrapped
+    # databases already have these columns/indexes while being stamped at
+    # an earlier revision.
+    op.execute("ALTER TABLE weekly_summaries ADD COLUMN IF NOT EXISTS user_id INTEGER")
+    op.execute("ALTER TABLE weekly_summaries ADD COLUMN IF NOT EXISTS tldr TEXT")
+    op.execute("ALTER TABLE weekly_summaries ADD COLUMN IF NOT EXISTS topic_clusters TEXT")
+    op.execute("ALTER TABLE weekly_summaries ADD COLUMN IF NOT EXISTS connections TEXT")
+
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_weekly_summaries_user_id "
+        "ON weekly_summaries (user_id)"
     )
 
-    # Add new summary fields
-    op.add_column(
-        "weekly_summaries",
-        sa.Column("tldr", sa.Text(), nullable=True),
-    )
-    op.add_column(
-        "weekly_summaries",
-        sa.Column("topic_clusters", sa.Text(), nullable=True),
-    )
-    op.add_column(
-        "weekly_summaries",
-        sa.Column("connections", sa.Text(), nullable=True),
-    )
-
-    # Create index on user_id
-    op.create_index(
-        op.f("ix_weekly_summaries_user_id"),
-        "weekly_summaries",
-        ["user_id"],
-        unique=False,
-    )
-
-    # Add foreign key constraint
-    op.create_foreign_key(
-        "fk_weekly_summaries_user_id",
-        "weekly_summaries",
-        "users",
-        ["user_id"],
-        ["id"],
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'fk_weekly_summaries_user_id'
+            ) THEN
+                ALTER TABLE weekly_summaries
+                    ADD CONSTRAINT fk_weekly_summaries_user_id
+                    FOREIGN KEY (user_id) REFERENCES users (id);
+            END IF;
+        END $$;
+        """
     )
 
 

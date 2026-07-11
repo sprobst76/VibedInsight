@@ -7,8 +7,6 @@ Create Date: 2026-02-26
 """
 from collections.abc import Sequence
 
-import sqlalchemy as sa
-
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -19,18 +17,16 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Add rating column to user_items (0=unrated, 1-5=stars)."""
-    op.add_column(
-        "user_items",
-        sa.Column(
-            "rating",
-            sa.Integer(),
-            nullable=False,
-            server_default="0",
-        ),
+    """Add rating column to user_items (0=unrated, 1-5=stars).
+
+    IF NOT EXISTS: legacy deployments already got this column from the old
+    init_db() ad-hoc ALTER while being stamped at an earlier revision.
+    """
+    op.execute(
+        "ALTER TABLE user_items ADD COLUMN IF NOT EXISTS rating INTEGER NOT NULL DEFAULT 0"
     )
 
 
 def downgrade() -> None:
     """Remove rating column from user_items."""
-    op.drop_column("user_items", "rating")
+    op.execute("ALTER TABLE user_items DROP COLUMN IF EXISTS rating")
