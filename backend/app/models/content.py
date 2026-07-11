@@ -18,6 +18,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+def _enum_values(enum_cls):
+    return [member.value for member in enum_cls]
+
+
 class ContentType(enum.StrEnum):
     LINK = "link"
     NEWSLETTER = "newsletter"
@@ -82,9 +86,13 @@ class ContentItem(Base):
     # UUID primary key (not incremental, prevents enumeration)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    content_type: Mapped[ContentType] = mapped_column(Enum(ContentType), default=ContentType.LINK)
+    # values_callable: store the lowercase enum VALUES in Postgres (matching
+    # the Alembic migrations), not the uppercase member names
+    content_type: Mapped[ContentType] = mapped_column(
+        Enum(ContentType, values_callable=_enum_values), default=ContentType.LINK
+    )
     status: Mapped[ProcessingStatus] = mapped_column(
-        Enum(ProcessingStatus), default=ProcessingStatus.PENDING
+        Enum(ProcessingStatus, values_callable=_enum_values), default=ProcessingStatus.PENDING
     )
 
     # URL deduplication
@@ -170,7 +178,7 @@ class ItemRelation(Base):
         index=True,
     )
     relation_type: Mapped[RelationType] = mapped_column(
-        Enum(RelationType), default=RelationType.RELATED
+        Enum(RelationType, values_callable=_enum_values), default=RelationType.RELATED
     )
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
