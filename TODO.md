@@ -182,6 +182,9 @@ CREATE TABLE item_relations (
 
 - [ ] Long URLs may truncate in item cards
 - [ ] Share sheet may not work with all apps
+- [ ] Settings: nach Ändern von Server-URL/API-Key nutzt die Inbox den alten
+      `ApiClient` bis zum App-Neustart (api/items-Provider werden beim Speichern
+      nicht invalidiert) — gefunden 2026-07-19 beim API-Key-Rollout
 - [x] Processing status doesn't auto-refresh ✅ (Polling alle 5s solange pending)
 
 ## Contributing

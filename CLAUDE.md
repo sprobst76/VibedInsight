@@ -68,8 +68,10 @@ Lebendes Beispiel: `IMPLEMENTATION-PLAN.md`.
   VPS-Ollama gepullt: `llama3.2:1b/3b`, `qwen2.5:3b`, `mxbai-embed-large`,
   `nomic-embed-text`. Backend pullt fehlende Chat-Modelle sonst automatisch nach.
 - Ollama auf dem VPS ist Teil des geteilten `ai-lab`-Stacks (wie auf pop-os).
-- `API_KEY` ist in der VPS-`.env` noch NICHT gesetzt (Compose lässt es
-  übergangsweise zu; Backend loggt Warnung). Setzen = API geschützt.
+- `API_KEY` ist auf dem VPS **gesetzt** (seit 2026-07-19) — API ist geschützt:
+  `/items` ohne `X-API-Key` → 401, mit Key → 200. Denselben Key trägt die App
+  unter Einstellungen. **Achtung:** `.env`-Key-Änderung braucht `docker compose
+  up -d` (recreate), nicht `restart`.
 - Diagnose ohne SSH: `GET /admin/ollama/check`, `GET /admin/stats`,
   `GET /admin/reprocess-status/<batch_id>`.
 
