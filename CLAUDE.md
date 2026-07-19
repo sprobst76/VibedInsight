@@ -4,6 +4,15 @@ Self-hosted Personal-Knowledge-Plattform: URLs/Notizen sammeln, per Ollama
 zusammenfassen und verschlagworten, Weekly-Digest, Knowledge-Graph.
 Flutter-App (Android) + FastAPI-Backend + PostgreSQL (pgvector) auf dem VPS.
 
+## Dev-Umgebung (Stand 2026-07-19)
+
+Entwicklung läuft auf dem **development-homeserver** (Tailscale
+`development-homeserver`; Docker, Ollama, Test-Smartphone per USB) — siehe
+`DEV.md`. Dev-Stack: `./dev.sh up` (API auf :8100 mit --reload, pgvector
+auf :5433, eigene Test-DB für pytest via `./dev.sh test`). Git/GitHub ist
+die einzige Quelle der Wahrheit — NIE Projektbäume per rsync syncen.
+Prod-Deploy bleibt unverändert: Push auf `main` → VPS.
+
 ## Architekturentscheidungen (2026-07, bewusst getroffen)
 
 - **Single-User + API-Key.** Die gesamte API ist durch einen statischen

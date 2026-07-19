@@ -1,0 +1,72 @@
+# VibedInsight — development stack (development-homeserver or any Docker host)
+#
+# Self-contained: own pgvector Postgres with a host port mapping and an API
+# container with source volume-mounts + uvicorn --reload. No Traefik, no
+# external networks. Ollama is reached on the Docker host via host-gateway
+# by default (works for native Ollama and for containers publishing 11434).
+#
+# Usage: ../dev.sh up   (or: docker compose -f docker-compose.dev.yml up -d)
+
+name: vibedinsight-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: vibedinsight-dev-postgres
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+      - POSTGRES_USER=vibedinsight
+      - POSTGRES_PASSWORD=${DEV_POSTGRES_PASSWORD:-vibedinsight}
+      - POSTGRES_DB=vibedinsight
+    ports:
+      # 5433 on the host to avoid clashing with an existing Postgres.
+      # pytest connects here from the host — ALWAYS against the separate
+      # vibedinsight_test database (the migration chain drops tables!).
+      - "${DEV_DB_PORT:-5433}:5432"
+    volumes:
+      - ./data/postgres-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibedinsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    image: vibedinsight-api:dev
+    container_name: vibedinsight-dev-api
+    restart: unless-stopped
+    # Migrations first, then hot-reload server (replaces the prod entrypoint)
+    command: sh -c "python -m app.migrate && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - TZ=${TZ:-Europe/Berlin}
+      - DATABASE_URL=postgresql+asyncpg://vibedinsight:${DEV_POSTGRES_PASSWORD:-vibedinsight}@postgres:5432/vibedinsight
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:3b}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-mxbai-embed-large}
+      - API_KEY=${API_KEY:-}
+      # Dev convenience: allow ingesting LAN/Tailscale URLs (SSRF guard off)
+      - ALLOW_PRIVATE_URLS=${ALLOW_PRIVATE_URLS:-true}
+      # Don't auto-generate weekly digests from a dev database
+      - WEEKLY_AUTO_GENERATE=${WEEKLY_AUTO_GENERATE:-false}
+      - DEBUG=true
+    ports:
+      # 8100 to stay clear of other services on a busy homeserver
+      - "${DEV_API_PORT:-8100}:8000"
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - ./tests:/app/tests
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
