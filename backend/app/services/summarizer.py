@@ -145,7 +145,7 @@ async def generate_summary(text: str) -> str:
 
 def normalize_topic(raw: str) -> str | None:
     """Normalize a topic name: lowercase, trimmed, no markup, sane length."""
-    topic = raw.strip().lower().replace("\n", " ")
+    topic = raw.strip().lower().replace("\n", " ").replace("_", " ")
     topic = re.sub(r"\s+", " ", topic)
     topic = topic.strip("-*• .\"'")
     if len(topic) < 2 or len(topic) > 100:

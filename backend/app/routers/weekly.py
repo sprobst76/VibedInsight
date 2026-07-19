@@ -20,6 +20,7 @@ from app.models.content import ContentItem, ItemRelation, ProcessingStatus, Week
 from app.models.user import User, UserItem
 from app.schemas import TopicCluster, WeeklySummaryListResponse, WeeklySummaryResponse
 from app.services.summarizer import generate_weekly_summary
+from app.timeutils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class NoItemsError(Exception):
 def get_week_bounds(date: datetime | None = None) -> tuple[datetime, datetime]:
     """Get Monday 00:00 and Sunday 23:59 for the given date's week."""
     if date is None:
-        date = datetime.utcnow()
+        date = utcnow()
 
     monday = date - timedelta(days=date.weekday())
     monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -111,16 +112,12 @@ async def generate_summary_for(
         items = [i for i in items if any(t.id == topic_id for t in i.topics)]
 
     if not items:
-        raise NoItemsError(
-            f"No completed items with summaries in week {summary.week_start.date()}"
-        )
+        raise NoItemsError(f"No completed items with summaries in week {summary.week_start.date()}")
 
     items_content = [
         {"title": item.title or "Untitled", "summary": item.summary or ""} for item in items
     ]
-    topics_by_item = {
-        item.title or "Untitled": [t.name for t in item.topics] for item in items
-    }
+    topics_by_item = {item.title or "Untitled": [t.name for t in item.topics] for item in items}
 
     item_ids = [item.id for item in items]
     relations_result = await db.execute(
@@ -150,7 +147,7 @@ async def generate_summary_for(
     summary.top_topics = json.dumps(result["top_topics"])
     summary.topic_clusters = json.dumps(result["topic_clusters"])
     summary.connections = json.dumps(result["connections"])
-    summary.generated_at = datetime.utcnow()
+    summary.generated_at = utcnow()
     summary.items_processed = len(items_content)
 
     await db.commit()

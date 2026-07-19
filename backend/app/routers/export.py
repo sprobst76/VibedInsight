@@ -8,7 +8,6 @@ per saved article that has been summarized.
 import io
 import re
 import zipfile
-from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -20,6 +19,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.content import ContentItem, ProcessingStatus
 from app.models.user import User, UserItem
+from app.timeutils import utcnow
 
 router = APIRouter()
 
@@ -98,7 +98,7 @@ async def export_markdown(
             zf.writestr(filename, _item_to_markdown(ui))
 
     zip_buffer.seek(0)
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = utcnow().strftime("%Y-%m-%d")
     zip_filename = f"vibedinsight-export-{today}.zip"
 
     return StreamingResponse(

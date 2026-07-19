@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.timeutils import utcnow
 
 
 class User(Base):
@@ -28,7 +29,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     items: Mapped[list[UserItem]] = relationship(
         "UserItem", back_populates="user", cascade="all, delete-orphan"
@@ -58,10 +59,8 @@ class UserItem(Base):
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     rating: Mapped[int] = mapped_column(Integer, default=0)  # 0=unrated, 1-5=stars
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     user: Mapped[User] = relationship("User", back_populates="items")
     content: Mapped[ContentItem] = relationship("ContentItem")

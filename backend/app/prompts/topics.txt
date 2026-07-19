@@ -2,8 +2,11 @@ Extrahiere 3-5 Themen (Topics) aus dem folgenden Text.
 
 Regeln:
 - Themen auf DEUTSCH, kleingeschrieben, maximal 3 Wörter
+- Natürliche Wörter bzw. Wortgruppen mit Leerzeichen — KEINE Unterstriche, kein
+  Zusammenkleben (schreibe "solid state batterie", nicht "solid_state" oder
+  "juristic_yoga")
 - Nur Themen, die im Text tatsächlich vorkommen — nichts erfinden
-- Konkrete Themen bevorzugen ("machine learning" statt "technologie")
+- Konkrete Sachthemen bevorzugen ("machine learning" statt "technologie")
 - Antworte als JSON: {{"topics": ["thema1", "thema2", "thema3"]}}
 
 TEXT:

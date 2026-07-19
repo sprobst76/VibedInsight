@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.timeutils import utcnow
 
 
 def _enum_values(enum_cls):
@@ -70,7 +71,7 @@ class Topic(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     # Relationship
     items: Mapped[list["ContentItem"]] = relationship(
@@ -111,7 +112,7 @@ class ContentItem(Base):
     # Reference counting for garbage collection
     ref_count: Mapped[int] = mapped_column(Integer, default=1, index=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
@@ -157,7 +158,7 @@ class WeeklySummary(Base):
     items_processed: Mapped[int] = mapped_column(Integer, default=0)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     generated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -181,7 +182,7 @@ class ItemRelation(Base):
         Enum(RelationType, values_callable=_enum_values), default=RelationType.RELATED
     )
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     # Relationships
     source_item: Mapped["ContentItem"] = relationship(
@@ -218,7 +219,5 @@ class ContentEmbedding(Base):
     model: Mapped[str] = mapped_column(String(100), default="mxbai-embed-large")
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

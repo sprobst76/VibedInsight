@@ -12,7 +12,6 @@ import asyncio
 import logging
 import traceback
 import uuid
-from datetime import datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +31,7 @@ from app.models.content import (
 from app.services.embeddings import generate_embedding_for_content
 from app.services.extractor import extract_from_url
 from app.services.summarizer import extract_topics, generate_summary
+from app.timeutils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ async def process_item(item_id: uuid.UUID) -> None:
                 await _attach_topics(item, topic_names, db)
 
                 item.status = ProcessingStatus.COMPLETED
-                item.processed_at = datetime.utcnow()
+                item.processed_at = utcnow()
                 # raw_text is kept on purpose: reprocessing and future
                 # semantic features (RAG) need the original text.
                 await db.commit()
@@ -92,9 +92,7 @@ async def process_item(item_id: uuid.UUID) -> None:
                 logger.error(traceback.format_exc())
                 try:
                     await db.rollback()
-                    result = await db.execute(
-                        select(ContentItem).where(ContentItem.id == item_id)
-                    )
+                    result = await db.execute(select(ContentItem).where(ContentItem.id == item_id))
                     failed_item = result.scalar_one_or_none()
                     if failed_item:
                         failed_item.status = ProcessingStatus.FAILED
@@ -140,9 +138,7 @@ async def requeue_stuck_items() -> None:
     async with async_session_maker() as db:
         result = await db.execute(
             select(ContentItem).where(
-                ContentItem.status.in_(
-                    [ProcessingStatus.PENDING, ProcessingStatus.PROCESSING]
-                )
+                ContentItem.status.in_([ProcessingStatus.PENDING, ProcessingStatus.PROCESSING])
             )
         )
         stuck = result.scalars().all()
@@ -242,7 +238,7 @@ async def update_embedding(item: ContentItem, db: AsyncSession) -> bool:
     if existing:
         existing.embedding = embedding
         existing.model = settings.ollama_embedding_model
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = utcnow()
     else:
         db.add(
             ContentEmbedding(

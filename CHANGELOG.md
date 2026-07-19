@@ -5,6 +5,20 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-07-19
+
+### Fixed
+- **Topics mit Unterstrichen** (z.B. `sarah_joepgen`) durch das kleinere
+  `qwen2.5:3b`: `topics.txt` schärft die Regeln (natürliche Wörter, keine
+  Unterstriche) und `normalize_topic` ersetzt Unterstriche deterministisch
+  durch Leerzeichen — modellunabhängige Garantie.
+
+### Changed
+- **`datetime.utcnow()` entfernt** (Python-3.12-Deprecation): neuer
+  `app/timeutils.py`-Helper `utcnow()` liefert naives UTC (gleiche Semantik wie
+  bisher, da die DateTime-Spalten naiv sind — kein aware/naive-Mischbruch).
+  Alle 13 App-Fundstellen umgestellt; Tests laufen jetzt ohne Deprecation-Warnings.
+
 ## [0.4.2] - 2026-07-19
 
 ### Fixed
