@@ -87,7 +87,21 @@ Docker container (part of the `ai-lab` stack) → pull models via
 `docker exec ollama ollama pull ...` or directly via the HTTP API on `:11434`.
 The same `OLLAMA_BASE_URL=http://host.docker.internal:11434` applies here.
 
-**[TODO: Ollama model update procedure to be documented separately]**
+**Updating Ollama itself** (the container is part of the shared `ai-lab`
+stack — a brief restart affects every ai-lab service, e.g. mindcraft/openwebui;
+the models survive because they live in the `/srv/ai-lab/data/ollama` bind
+mount):
+
+```bash
+docker compose -f /srv/ai-lab/docker-compose.yml pull ollama
+docker compose -f /srv/ai-lab/docker-compose.yml up -d ollama   # recreates only the ollama service
+```
+
+Verify: `curl -s localhost:11434/api/version`, `docker exec ollama ollama list`
+(models still present), then one dev-stack ingest roundtrip (Summary + Topics +
+Embedding). Do NOT `docker run` a fresh container by hand — that detaches it
+from the compose stack and drops the GPU/port/mount config.
+(Verified 2026-07-19: 0.13.5 → 0.32.1, pipeline intact.)
 
 ## Prod deploy (unchanged)
 
