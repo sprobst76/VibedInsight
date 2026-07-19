@@ -59,13 +59,15 @@ Faustregel: Billigstes Modell, das die Aufgabe noch zuverlässig löst;
 hochstufen, sobald echte Logik/Strategie ins Spiel kommt.
 Lebendes Beispiel: `IMPLEMENTATION-PLAN.md`.
 
-## Prod-Setup (Stand 2026-07-11)
+## Prod-Setup (Stand 2026-07-19)
 
-- VPS-Ollama hat gepullt: `llama3.2:3b`, `qwen2.5:3b`, `mxbai-embed-large`,
-  `nomic-embed-text`. Die VPS-`.env` stand auf `OLLAMA_MODEL=llama3.2:1b`
-  (nicht gepullt!) — deshalb schlugen alle Summaries fehl. Das Backend pullt
-  fehlende Chat-Modelle jetzt automatisch nach; besser: `OLLAMA_MODEL` in
-  der VPS-`.env` auf `llama3.2:3b` oder `qwen2.5:3b` stellen.
+- **VPS-Chat-Modell: `qwen2.5:3b`** (seit 2026-07-19; vorher `llama3.2:1b` —
+  zu schwach). VPS hat 7,6 GB RAM / 4 Kerne / CPU-only und swappt schon → auf
+  `qwen2.5:3b` (bereits gepullt, gutes Deutsch + JSON) statt `qwen3:4b-instruct`
+  (bräuchte mehr RAM). Embedding bleibt `mxbai-embed-large` (1024-dim, fix).
+  VPS-Ollama gepullt: `llama3.2:1b/3b`, `qwen2.5:3b`, `mxbai-embed-large`,
+  `nomic-embed-text`. Backend pullt fehlende Chat-Modelle sonst automatisch nach.
+- Ollama auf dem VPS ist Teil des geteilten `ai-lab`-Stacks (wie auf pop-os).
 - `API_KEY` ist in der VPS-`.env` noch NICHT gesetzt (Compose lässt es
   übergangsweise zu; Backend loggt Warnung). Setzen = API geschützt.
 - Diagnose ohne SSH: `GET /admin/ollama/check`, `GET /admin/stats`,
@@ -76,6 +78,11 @@ Lebendes Beispiel: `IMPLEMENTATION-PLAN.md`.
 - Der API-Container hat **kein Host-Port-Mapping** (nur Traefik-Netz
   `ai-lab_ai-lab`). Health-Checks vom VPS-Host müssen per
   `docker compose exec api curl localhost:8000/health` laufen.
+- **`.env`-Änderungen brauchen `docker compose up -d` (recreate), NICHT
+  `deploy.sh restart`.** `docker compose restart` startet nur den bestehenden
+  Container neu und liest das `env_file` NICHT neu ein — z.B. ein geändertes
+  `OLLAMA_MODEL` greift erst nach `up -d`. (Verifiziert 2026-07-19 beim
+  VPS-Modellwechsel.)
 - FastAPI-Routen: `/items/bulk/*` MUSS vor `/items/{item_id}/...` deklariert
   bleiben, sonst fängt der int-Pfadparameter "bulk" ab (422).
 - Flutter: `flutter analyze` schlägt auch bei Infos fehl → Deprecations sofort
