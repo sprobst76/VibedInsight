@@ -123,9 +123,7 @@ async def reprocess_single(
     """Reprocess a single content item by content UUID."""
     ok = await reprocess_item(content_id, db)
     if not ok:
-        raise HTTPException(
-            status_code=400, detail="Cannot reprocess: item missing or no text/URL"
-        )
+        raise HTTPException(status_code=400, detail="Cannot reprocess: item missing or no text/URL")
     return {"message": f"Reprocessing started for {content_id}"}
 
 

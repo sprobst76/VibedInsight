@@ -54,9 +54,7 @@ def main() -> None:
     has_stamp, has_legacy_tables = asyncio.run(_inspect_db())
 
     if not has_stamp and has_legacy_tables:
-        logger.info(
-            f"Legacy database without alembic stamp detected — stamping {LEGACY_REVISION}"
-        )
+        logger.info(f"Legacy database without alembic stamp detected — stamping {LEGACY_REVISION}")
         command.stamp(alembic_cfg, LEGACY_REVISION)
 
     logger.info("Running alembic upgrade head")

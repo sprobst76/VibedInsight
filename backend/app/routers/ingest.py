@@ -91,9 +91,7 @@ async def ingest_url(
     url_hash = hash_url(url)
 
     # Check if URL already exists
-    existing_result = await db.execute(
-        select(ContentItem).where(ContentItem.url_hash == url_hash)
-    )
+    existing_result = await db.execute(select(ContentItem).where(ContentItem.url_hash == url_hash))
     existing = existing_result.scalar_one_or_none()
 
     if existing:
