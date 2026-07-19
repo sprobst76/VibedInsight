@@ -185,8 +185,14 @@ async def _refetch_and_process(item_id: uuid.UUID) -> None:
 
 
 async def _attach_topics(item: ContentItem, topic_names: list[str], db: AsyncSession) -> None:
-    """Get-or-create topics by name and attach them to the item."""
-    current_topic_ids = {t.id for t in item.topics}
+    """Get-or-create topics by name and set them on the item.
+
+    Replaces any existing topics — on reprocessing the old topics must be
+    dropped, not accumulated (a fresh run may produce different/other-language
+    topics).
+    """
+    item.topics.clear()
+    attached_ids: set[int] = set()
     for topic_name in topic_names:
         topic_result = await db.execute(select(Topic).where(Topic.name == topic_name))
         topic = topic_result.scalar_one_or_none()
@@ -196,9 +202,9 @@ async def _attach_topics(item: ContentItem, topic_names: list[str], db: AsyncSes
             db.add(topic)
             await db.flush()
 
-        if topic.id not in current_topic_ids:
+        if topic.id not in attached_ids:
             item.topics.append(topic)
-            current_topic_ids.add(topic.id)
+            attached_ids.add(topic.id)
 
 
 async def _embed_and_relate(item: ContentItem, db: AsyncSession) -> None:

@@ -5,6 +5,22 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-07-19
+
+### Fixed
+- **Topics akkumulierten beim Reprocessing**: `_attach_topics` hängte neue
+  Topics nur an, ohne alte zu entfernen — nach einem Reprocess hatte ein Item
+  die alten *und* neuen Topics (inkl. alter englischer). Ersetzt jetzt (clear
+  vor attach). Verifiziert: Dev-Item 3 → 3 Topics vor und nach Reprocess.
+- **Summary-Format bei kleinen Modellen**: `qwen2.5:3b` (Prod) formatierte mit
+  `### Überschriften` / `**Stichpunkt 1:**`. Prompt schärft jetzt das Format
+  (reine `- `-Bullets, keine Header/Nummerierung/Fettschrift). Verifiziert
+  gegen qwen2.5:3b.
+
+### Changed
+- **Prod-Chat-Modell `llama3.2:1b` → `qwen2.5:3b`** (VPS CPU-only, 7,6 GB RAM;
+  deutlich besseres Deutsch + strukturierte Ausgabe, sicherer RAM-Footprint).
+
 ## [0.4.1] - 2026-07-19
 
 ### Fixed
