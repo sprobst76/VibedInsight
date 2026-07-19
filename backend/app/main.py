@@ -2,10 +2,11 @@ import logging
 import secrets
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import settings
 from app.database import init_db
@@ -62,7 +63,9 @@ app.add_middleware(
 )
 
 # Paths reachable without the API key
-PUBLIC_PATHS = {"/health"}
+PUBLIC_PATHS = {"/health", "/privacy"}
+
+_PRIVACY_HTML = (Path(__file__).parent / "privacy.html").read_text(encoding="utf-8")
 
 
 @app.middleware("http")
@@ -87,6 +90,12 @@ app.include_router(export.router, prefix="/export", tags=["Export"])
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": APP_VERSION}
+
+
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy():
+    """Public privacy policy page (required as a Play Store listing URL)."""
+    return HTMLResponse(content=_PRIVACY_HTML)
 
 
 if __name__ == "__main__":
