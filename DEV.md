@@ -65,6 +65,8 @@ The app reads server URL + API key from its settings screen, so no code
 changes are needed:
 
 1. `cd app && flutter run` (phone attached to the homeserver via USB/WiFi-ADB).
+   ⚠️ Flutter (3.38.5) is located at `~/flutter/bin`; in non-interactive shells
+   it's not in `PATH` — prepend `export PATH="$HOME/flutter/bin:$PATH"` if needed.
 2. In the app settings, set the server URL to
    `http://<homeserver-LAN-or-Tailscale-IP>:8100` (dev `API_KEY` is empty by
    default — leave the key field blank).
@@ -76,6 +78,16 @@ ADB server over SSH and point local tools at it:
 ssh -N -L 5037:localhost:5037 development-homeserver &
 ADB_SERVER_SOCKET=tcp:localhost:5037 adb devices
 ```
+
+## Dev on pop-os (local machine)
+
+The same `./dev.sh` workflow runs on pop-os with identical ports (:8100 API,
+:5433 pgvector). `docker compose up` brings up the stack. Ollama runs as a
+Docker container (part of the `ai-lab` stack) → pull models via
+`docker exec ollama ollama pull ...` or directly via the HTTP API on `:11434`.
+The same `OLLAMA_BASE_URL=http://host.docker.internal:11434` applies here.
+
+**[TODO: Ollama model update procedure to be documented separately]**
 
 ## Prod deploy (unchanged)
 

@@ -8,10 +8,11 @@ Flutter-App (Android) + FastAPI-Backend + PostgreSQL (pgvector) auf dem VPS.
 
 Entwicklung läuft auf dem **development-homeserver** (Tailscale
 `development-homeserver`; Docker, Ollama, Test-Smartphone per USB) — siehe
-`DEV.md`. Dev-Stack: `./dev.sh up` (API auf :8100 mit --reload, pgvector
-auf :5433, eigene Test-DB für pytest via `./dev.sh test`). Git/GitHub ist
-die einzige Quelle der Wahrheit — NIE Projektbäume per rsync syncen.
-Prod-Deploy bleibt unverändert: Push auf `main` → VPS.
+`DEV.md`. Auch auf **pop-os** (lokaler Dev-Rechner) läuft der gleiche Stack
+mit den gleichen Ports (:8100 API, :5433 pgvector). Dev-Stack: `./dev.sh up`
+(API mit --reload, pgvector, eigene Test-DB für pytest via `./dev.sh test`).
+Git/GitHub ist die einzige Quelle der Wahrheit — NIE Projektbäume per rsync
+syncen. Prod-Deploy bleibt unverändert: Push auf `main` → VPS.
 
 ## Architekturentscheidungen (2026-07, bewusst getroffen)
 
@@ -39,6 +40,25 @@ Prod-Deploy bleibt unverändert: Push auf `main` → VPS.
 - Weekly-Digest wird sonntags 18:00 automatisch generiert
   (`app/services/scheduler.py`, abschaltbar via `WEEKLY_AUTO_GENERATE=false`).
 
+## Arbeitsweise: Modell-Routing (Token-Vorauswahl)
+
+Bei Implementierungsplänen trägt jede Aufgabe ein Modell-Etikett — das
+schwächste noch ausreichende Modell, einmalig strategisch festgelegt.
+Ausführung liest das Etikett nur ab: "einmal teuer denken, oft billig
+ausführen".
+
+| Modell | Wofür |
+|---|---|
+| Haiku 4.5 | Klare, repetitive Arbeit: Doku, Prompt-Text, Boilerplate, mechanische Fixes |
+| Sonnet 5 | Standard-Entwicklung: Code mit Logik, Integration, Tests, Docker/Compose |
+| Opus 4.8 | Algorithmen, kniffliges Denken, heikle Migrationen |
+| Fable 5 | Strategie/Design/Konzept-Weichen (z.B. Planerstellung) |
+| ? Nachfragen | Scope/Entscheidung offen — erst fragen/messen, dann ausführen |
+
+Faustregel: Billigstes Modell, das die Aufgabe noch zuverlässig löst;
+hochstufen, sobald echte Logik/Strategie ins Spiel kommt.
+Lebendes Beispiel: `IMPLEMENTATION-PLAN.md`.
+
 ## Prod-Setup (Stand 2026-07-11)
 
 - VPS-Ollama hat gepullt: `llama3.2:3b`, `qwen2.5:3b`, `mxbai-embed-large`,
@@ -61,8 +81,15 @@ Prod-Deploy bleibt unverändert: Push auf `main` → VPS.
 - Flutter: `flutter analyze` schlägt auch bei Infos fehl → Deprecations sofort
   fixen. Drift-Schemaänderungen brauchen `schemaVersion`-Bump + `onUpgrade`
   + `dart run build_runner build`.
-- Lokal gibt es kein Docker/Postgres — Backend-Tests laufen nur in CI
-  (GitHub Actions mit pgvector-Service) oder gegen eine manuell erreichbare DB.
+- Der lokale Dev-Rechner (pop-os) ist inzwischen vollwertiger zweiter Dev-Standort:
+  Docker 29.6.1 + Compose vorhanden, `./dev.sh up` läuft end-to-end (verifiziert
+  2026-07-19), Backend-Tests lokal via `./dev.sh test`. CI (GitHub Actions mit
+  pgvector) bleibt für Branch-Tests. (Der Homeserver bleibt der primäre Dev-Standort
+  — siehe `DEV.md`.)
+- **Prod-Daten sind das Original.** Die VPS-Postgres ist die einzige Quelle der
+  echten Inhalte — NIE mit leerem/altem Dev-Stand überschreiben. Datenfluss nur
+  Prod→Dev (z.B. `pg_dump` vom VPS in die Dev-DB), nie umgekehrt. Vor riskanten
+  Prod-Aktionen `./deploy.sh backup`.
 - Deploy: Push auf `main` → GitHub Action → SSH auf VPS → `deploy.sh update`.
   CI-Branchtests: Branches `rework/**` triggern CI ohne Deploy.
 

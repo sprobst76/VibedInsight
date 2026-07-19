@@ -93,10 +93,12 @@ nichts gelöscht.
 ## Offen geblieben (bewusst)
 
 - `claude update` auf dem Homeserver (2.1.58 → aktuell) — reine Kür.
-- **Flutter fehlt** auf dem Homeserver (nur `adb`) — SDK nachinstallieren
+- **Flutter fehlt auf dem Homeserver** (nur `adb` vorhanden) — SDK nachinstallieren
   (App-Builds direkt dort) *oder* App vom Laptop gegen `http://<homeserver>:8100`
-  bauen (ADB per SSH-Forward, siehe `DEV.md`).
+  bauen (ADB per SSH-Forward, siehe `DEV.md`). Pop-os hat Flutter 3.38.5
+  unter `~/flutter/bin`.
 - **Prod-Daten nicht kopiert** — der Dev-Stack startet leer. Bei Bedarf einen
   `pg_dump` vom VPS in die Dev-DB einspielen.
-- **Backlog:** Der `summary`-Prompt erzwingt keine Sprache → Summaries kommen
-  z.T. englisch trotz deutschem Input (Topics sind korrekt deutsch normalisiert).
+- ~~**Backlog:** Der `summary`-Prompt erzwingt keine Sprache → Summaries kommen
+  z.T. englisch trotz deutschem Input.~~ **Behoben in 0.4.1** (2026-07-19):
+  Prompt auf Deutsch umgeschrieben, Ausgabesprache erzwungen (verifiziert).

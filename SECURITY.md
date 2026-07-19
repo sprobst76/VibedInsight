@@ -63,6 +63,18 @@ POSTGRES_PASSWORD=$(openssl rand -base64 32)
 - Review Docker images regularly
 - Monitor logs for suspicious activity
 
+## Operational Practices
+
+- **Regular backups:** Run `./deploy.sh backup` regularly and copy backups
+  off-site — a backup on the VPS alone won't survive a VPS outage.
+- **Test restore procedures:** Practice restoring from backup before an
+  emergency forces you to learn the process under pressure.
+- **Set API_KEY in production:** The entire API is protected by a static
+  `X-API-Key` header; enable it in the VPS `.env` to block unauthorized access.
+- **Protect secrets:** `.env` and `.env.local` remain `.gitignore`d; never pass
+  tokens as command-line arguments (they land in shell history and trigger
+  security blocks).
+
 ## Known Security Limitations
 
 1. **No built-in authentication** (v0.3.x) - Relies on network-level security

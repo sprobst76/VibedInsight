@@ -5,6 +5,29 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-19
+
+### Fixed
+- **Summaries jetzt immer auf Deutsch**: Der `summary`-Prompt
+  (`backend/app/prompts/summary.txt`) war komplett englisch und erzwang keine
+  Ausgabesprache — dadurch kamen Zusammenfassungen häufig englisch, selbst bei
+  deutschem Input. Prompt auf Deutsch umgeschrieben und "ausschließlich auf
+  Deutsch" erzwungen (verifiziert: deutsches *und* englisches Item → beide
+  Summaries deutsch).
+
+### Added
+- **`IMPLEMENTATION-PLAN.md`**: Arbeitspakete (Doku-Drift, Ollama-Update,
+  Modellwechsel) mit Modell-Vorauswahl je Aufgabe (Token-Optimierung).
+- **CLAUDE.md**: Abschnitt "Arbeitsweise: Modell-Routing" + Stolperfalle
+  "Prod-Daten sind das Original".
+- **SECURITY.md**: Abschnitt "Operational Practices" (Backups, Restore-Test,
+  API_KEY, Secret-Handling).
+
+### Changed
+- Doku an den pop-os-Dev-Standort angepasst (CLAUDE.md/DEV.md/MIGRATION.md):
+  Docker/Compose lokal vorhanden, Flutter unter `~/flutter/bin`, Ollama als
+  Container.
+
 ## [0.4.0] - 2026-07-11
 
 ### Changed — Architektur-Konsolidierung ("Single-User Rework")
