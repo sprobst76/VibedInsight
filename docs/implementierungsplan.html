@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VibedInsight — Phasierter Produkt-Implementierungsplan mit Modell-Routing</title>
+<style>
+:root{
+  --bg:#f7f8fa; --card:#ffffff; --ink:#1a1d24; --muted:#5b6472; --line:#e3e7ee;
+  --accent:#2563eb; --code:#eef1f6; --shadow:0 1px 3px rgba(20,30,50,.08),0 1px 2px rgba(20,30,50,.04);
+  --haiku:#16a34a; --sonnet:#2563eb; --opus:#7c3aed; --fable:#d97706; --ask:#64748b;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0f1218; --card:#171b23; --ink:#e6e9ef; --muted:#9aa4b2; --line:#262c37;
+    --accent:#60a5fa; --code:#1e232d; --shadow:0 1px 3px rgba(0,0,0,.4);
+    --haiku:#22c55e; --sonnet:#60a5fa; --opus:#a78bfa; --fable:#fbbf24; --ask:#94a3b8;}
+}
+:root[data-theme="dark"]{--bg:#0f1218; --card:#171b23; --ink:#e6e9ef; --muted:#9aa4b2; --line:#262c37;
+  --accent:#60a5fa; --code:#1e232d; --shadow:0 1px 3px rgba(0,0,0,.4);
+  --haiku:#22c55e; --sonnet:#60a5fa; --opus:#a78bfa; --fable:#fbbf24; --ask:#94a3b8;}
+:root[data-theme="light"]{--bg:#f7f8fa; --card:#ffffff; --ink:#1a1d24; --muted:#5b6472; --line:#e3e7ee;
+  --accent:#2563eb; --code:#eef1f6; --haiku:#16a34a; --sonnet:#2563eb; --opus:#7c3aed; --fable:#d97706; --ask:#64748b;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 20px;max-width:75ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;margin:0 0 18px}
+.stats{display:flex;flex-wrap:wrap;gap:22px;align-items:center;margin-bottom:12px}
+.stat b{font-size:22px}.stat span{color:var(--muted);font-size:13px;display:block}
+.distbar{display:flex;height:14px;border-radius:8px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line)}
+.seg{height:100%}
+.distlegend,.legendrow{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.dl{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.m-haiku,.dot.m-haiku,.seg.m-haiku{background:var(--haiku)}
+.m-sonnet,.dot.m-sonnet,.seg.m-sonnet{background:var(--sonnet)}
+.m-opus,.dot.m-opus,.seg.m-opus{background:var(--opus)}
+.m-fable,.dot.m-fable,.seg.m-fable{background:var(--fable)}
+.m-ask,.dot.m-ask,.seg.m-ask{background:var(--ask)}
+.badge{color:#fff;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;display:inline-block}
+.badge.m-haiku{background:var(--haiku)}.badge.m-sonnet{background:var(--sonnet)}
+.badge.m-opus{background:var(--opus)}.badge.m-fable{background:var(--fable)}.badge.m-ask{background:var(--ask)}
+.nav{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 24px}
+.nav a{font-size:12.5px;color:var(--ink);text-decoration:none;border:1px solid var(--line);
+  background:var(--card);padding:4px 10px;border-radius:20px;white-space:nowrap}
+.nav a:hover{border-color:var(--accent);color:var(--accent)}
+.nav a.navdone{opacity:.55;text-decoration:line-through}
+.phase{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+  padding:18px 20px;margin:0 0 18px;scroll-margin-top:14px}
+.phase.done{opacity:.82}
+.phead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.ptitle{font-size:18px;font-weight:700}
+.pid{display:inline-block;background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+  padding:2px 8px;border-radius:6px;margin-right:9px;vertical-align:middle}
+.pmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.value{font-size:12px;font-weight:600;color:#fff;background:var(--vc);padding:2px 9px;border-radius:20px}
+.prog{font-size:12px;color:var(--muted)}
+.goal{color:var(--muted);margin:8px 0 14px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;
+  letter-spacing:.04em;border-bottom:2px solid var(--line);padding:6px 10px}
+td{border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}
+tr.done{opacity:.6}
+tr.done .tt{text-decoration:line-through}
+.c-id{white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600}
+.c-task{min-width:230px;max-width:360px}
+.tt{font-weight:600;margin-bottom:2px}
+.reason{color:var(--muted);font-size:12px;line-height:1.45}
+.c-scope code{font-size:11.5px;background:var(--code);padding:2px 5px;border-radius:5px;
+  word-break:break-word;display:inline-block;color:var(--ink)}
+.c-dep{white-space:nowrap;color:var(--muted);font-size:12px}
+.c-verify{color:var(--muted);font-size:12px;min-width:170px;max-width:250px}
+.st{font-weight:700}.st.ok{color:var(--haiku)}.st.open{color:var(--muted)}
+.verif{margin:12px 0 0;font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.foot{color:var(--muted);font-size:12px;margin-top:26px;text-align:center}
+</style></head>
+<body><div class="wrap">
+<h1>VibedInsight — Phasierter Produkt-Implementierungsplan mit Modell-Routing</h1>
+<p class="sub">Plan nach Wert/Aufwand und Abhängigkeiten geordnet: Zuerst die offenen Ops-/Security-Reste dieser Session (klein, entsperren Prod-Sicherheit), dann die pgvector-nahen Low-hanging-Features (RAG-Chat, Resurfacing, Triage), danach Capture-Kanäle, Härtung von Backend und App, und erst dann die größeren Roadmap-Blöcke (Collections, AI-Konfiguration, Export/Import, Graph/Monitoring). Multi-User &amp; Co. bleiben als bewusster Ausblick. Jede Aufgabe trägt das schwächste noch ausreichende Modell; &#x27;?&#x27; markiert Produktentscheidungen mit Empfehlung. &#x27;Fertig&#x27; heißt überall: selbst verifiziert (Dev-Stack via ./dev.sh, Tests via ./dev.sh test, App per adb auf dem Testgerät, Prod nach Deploy geprüft).</p>
+
+<div class="card">
+  <div class="stats">
+    <div class="stat"><b>12</b><span>Phasen (P1–P12)</span></div>
+    <div class="stat"><b>63</b><span>offene Aufgaben</span></div>
+    <div class="stat"><b>6</b><span>erledigt (Session)</span></div>
+    <div class="stat"><b>9</b><span>Entscheidungen (?)</span></div>
+  </div>
+  <div style="font-size:12.5px;color:var(--muted);margin-bottom:2px">Modell-Verteilung der offenen Aufgaben (der Spar-Hebel: Masse auf Haiku/Sonnet)</div>
+  <div class="distbar"><div class="seg m-haiku" style="width:15.9%" title="Haiku 4.5: 10"></div><div class="seg m-sonnet" style="width:58.7%" title="Sonnet 5: 37"></div><div class="seg m-opus" style="width:4.8%" title="Opus 4.8: 3"></div><div class="seg m-fable" style="width:6.3%" title="Fable 5: 4"></div><div class="seg m-ask" style="width:14.3%" title="?: 9"></div></div><div class="distlegend"><span class="dl"><span class="dot m-haiku"></span>Haiku 4.5 <b>10</b></span><span class="dl"><span class="dot m-sonnet"></span>Sonnet 5 <b>37</b></span><span class="dl"><span class="dot m-opus"></span>Opus 4.8 <b>3</b></span><span class="dl"><span class="dot m-fable"></span>Fable 5 <b>4</b></span><span class="dl"><span class="dot m-ask"></span>? <b>9</b></span></div>
+</div>
+
+<div style="font-size:13px;color:var(--muted);margin:0 0 4px"><b style="color:var(--ink)">Modell-Legende</b> — billigstes Modell, das die Aufgabe zuverlässig löst; hochstufen sobald echte Logik/Strategie ins Spiel kommt:</div>
+<div class="legendrow" style="margin-bottom:8px"><span class="dl"><span class="dot m-haiku"></span>Haiku 4.5</span><span class="dl"><span class="dot m-sonnet"></span>Sonnet 5</span><span class="dl"><span class="dot m-opus"></span>Opus 4.8</span><span class="dl"><span class="dot m-fable"></span>Fable 5</span><span class="dl"><span class="dot m-ask"></span>?</span></div>
+
+<div class="nav"><a href="#P0" class="navdone">P0 · Erledigt in dieser Session (Kontext)</a><a href="#P1" class="">P1 · Ops-Reste &amp; Security-Hygiene</a><a href="#P2" class="">P2 · Frag dein Archiv — RAG-Chat</a><a href="#P3" class="">P3 · Serendipity-Resurfacing + Digest-Push</a><a href="#P4" class="">P4 · KI-Triage der Inbox</a><a href="#P5" class="">P5 · Capture-Kanäle</a><a href="#P6" class="">P6 · Backend-Härtung &amp; Betrieb (v1.0-Fundament)</a><a href="#P7" class="">P7 · App-Qualität: Tests, Fehler-UX, Polish</a><a href="#P8" class="">P8 · Collections, User-Tags &amp; Smart Collections (v0.3.0)</a><a href="#P9" class="">P9 · AI-Erweiterungen: Prompts, Modell-Routing, Key-Insights (v0.4.0)</a><a href="#P10" class="">P10 · Export, Import, RSS &amp; Offline-Cache (v0.5.0)</a><a href="#P11" class="">P11 · Knowledge-Graph-Ausbau &amp; Monitoring</a><a href="#P12" class="">P12 · Ausblick (bewusst später): Multi-User, Provider, iOS, Sync</a></div>
+
+<section class="phase done" id="P0">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P0</span>Erledigt in dieser Session (Kontext)</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">6/6 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Bereits verifizierte Arbeiten dieser Session als Ausgangsbasis festhalten — nichts hiervon neu planen.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 0.1</td>
+      <td class="c-task"><div class="tt">Dev stack verified on pop-os + doc drift fixed</div>
+          <div class="reason">Standard-Umgebungsarbeit</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>DEV.md, dev.sh, CLAUDE.md</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">erledigt</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 0.2</td>
+      <td class="c-task"><div class="tt">German summary bug + small-model format fix (v0.4.1/v0.4.2)</div>
+          <div class="reason">Bugfix mit Logik</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/prompts/summary.txt, backend/app/services/summarizer.py</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">erledigt</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 0.3</td>
+      <td class="c-task"><div class="tt">Reprocess topic accumulation bug fix (v0.4.2)</div>
+          <div class="reason">Bugfix mit Logik</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/services/processing.py</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">erledigt</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 0.4</td>
+      <td class="c-task"><div class="tt">Ollama 0.13.5 to 0.32.1 + Docker cleanup (~92 GB)</div>
+          <div class="reason">Mechanische Ops</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>Homeserver-Docker</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">erledigt</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 0.5</td>
+      <td class="c-task"><div class="tt">VPS chat model to qwen2.5:3b; backup/restore drill</div>
+          <div class="reason">Ops mit Verifikation</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>VPS .env, deploy.sh backup</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">erledigt</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 0.6</td>
+      <td class="c-task"><div class="tt">Model-routing concept + backup principles documented</div>
+          <div class="reason">Konzeptarbeit</div></td>
+      <td class="c-model"><span class="badge m-fable">Fable 5</span></td>
+      <td class="c-scope"><code>CLAUDE.md, SECURITY.md</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">erledigt</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Bereits verifiziert: v0.4.1/v0.4.2 deployed, Backup-Restore-Drill mit 218 Items bestanden, qwen2.5:3b auf dem VPS aktiv, Doku in CLAUDE.md/SECURITY.md nachgezogen.</p>
+    </section><section class="phase" id="P1">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P1</span>Ops-Reste &amp; Security-Hygiene</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">0/4 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Die vier offenen Punkte dieser Session abräumen: Prod-API absichern, Secrets-Hygiene, Deprecations, Topic-Qualität.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 1.1</td>
+      <td class="c-task"><div class="tt">Set API_KEY on VPS + same key in app settings</div>
+          <div class="reason">Koordination mit Stefan nötig (Key muss zeitgleich in der App eingetragen werden, sonst sperrt sich die App aus). Empfehlung: Key generieren, zuerst in App-Settings eintragen, dann VPS-.env setzen + Container-Restart.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>VPS backend/.env, app/lib/screens/settings_screen.dart (nur Nutzung, Feld existiert)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">curl auf Prod ohne Key -&gt; 401; App-Inbox lädt mit Key; Ingest von der App funktioniert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 1.2</td>
+      <td class="c-task"><div class="tt">Clean settings.local.json, remove stale hardcoded JWT</div>
+          <div class="reason">Mechanischer Aufräum-Fix ohne Logik</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>.claude/settings.local.json</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">grep nach JWT/Token in .claude/ leer; Session startet ohne Permission-Fehler</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 1.3</td>
+      <td class="c-task"><div class="tt">Replace datetime.utcnow() with timezone-aware datetimes</div>
+          <div class="reason">Repetitiver Ersatz nach festem Muster; bei DB-Spalten-Defaults auf Sonnet hochstufen</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>backend/app/** (models/content.py, services/scheduler.py, routers/*), backend/tests</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">grep -r &#x27;utcnow&#x27; backend/app leer; ./dev.sh test grün ohne DeprecationWarnings</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 1.4</td>
+      <td class="c-task"><div class="tt">Sharpen topics.txt for qwen2.5:3b (no underscores, cleaner German)</div>
+          <div class="reason">Prompt-Text-Feinschliff; Normalisierungs-Fallback trivial</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>backend/app/prompts/topics.txt, ggf. normalize_topic in summarizer.py</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">5 Items reprocessen, Topics prüfen: deutsch, ohne Unterstriche</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Prod-API antwortet ohne X-API-Key mit 401, App funktioniert mit Key weiter; grep findet kein datetime.utcnow() mehr; ./dev.sh test grün; 5 reprocesste Beispiel-Items zeigen saubere deutsche Topics ohne Unterstriche.</p>
+    </section><section class="phase" id="P2">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P2</span>Frag dein Archiv — RAG-Chat</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">0/5 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Chat-Endpoint (Frage-&gt;Embedding-&gt;pgvector-Top-K-&gt;Ollama mit Kontext) plus Chat-Screen — das wertvollste Feature auf vorhandener Infrastruktur.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 2.1</td>
+      <td class="c-task"><div class="tt">RAG design: retrieval params, context budget, answer contract</div>
+          <div class="reason">Architektur-/UX-Weichen; Kontextbudget auf CPU-3b entscheidet Qualität</div></td>
+      <td class="c-model"><span class="badge m-fable">Fable 5</span></td>
+      <td class="c-scope"><code>Konzept (Top-K, Cosine-Schwelle, Kontextbudget für 3b, Zitierformat, 0-Treffer-Verhalten)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Design-Notiz mit Parametern, gegen VPS-Constraints geprüft</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 2.2</td>
+      <td class="c-task"><div class="tt">Backend: /chat endpoint + RAG service</div>
+          <div class="reason">Kern-Retrieval: Relevanz-Schwellen, Token-Budget-Trimming, Quellen-Attribution, leere-Treffer-Degradation</div></td>
+      <td class="c-model"><span class="badge m-opus">Opus 4.8</span></td>
+      <td class="c-scope"><code>backend/app/routers/chat.py (neu), backend/app/services/rag.py (neu), embeddings.py, main.py</code></td>
+      <td class="c-dep">2.1</td>
+      <td class="c-verify">pytest: Frage liefert erwartetes Item; leere-Treffer-Fall; curl gegen Dev-Stack</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 2.3</td>
+      <td class="c-task"><div class="tt">German RAG answer prompt with source citations</div>
+          <div class="reason">Prompt-Text nach fixem Design</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>backend/app/prompts/rag_answer.txt (neu)</code></td>
+      <td class="c-dep">2.1</td>
+      <td class="c-verify">Antworten sind deutsch und zitieren [Item-Titel]</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 2.4</td>
+      <td class="c-task"><div class="tt">App: chat screen + provider + API client</div>
+          <div class="reason">Standard-Flutter-Screen mit Riverpod nach vorhandenem Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/screens/chat_screen.dart (neu), providers/chat_provider.dart (neu), api/api_client.dart, main.dart</code></td>
+      <td class="c-dep">2.2</td>
+      <td class="c-verify">flutter analyze clean; adb: Frage -&gt; Antwort mit tappbaren Quellen</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 2.5</td>
+      <td class="c-task"><div class="tt">Backend tests for RAG</div>
+          <div class="reason">Test-Gerüst nach pytest/pgvector-Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/tests/test_chat.py (neu)</code></td>
+      <td class="c-dep">2.2</td>
+      <td class="c-verify">./dev.sh test grün inkl. neuer Tests</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Frage zu bekanntem Item -&gt; deutsche, korrekte Antwort mit Quell-Items; Frage ohne Treffer -&gt; ehrliches &#x27;dazu nichts&#x27;; Tests grün; Prod-Latenz (qwen2.5:3b, CPU) &lt;60 s.</p>
+    </section><section class="phase" id="P3">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P3</span>Serendipity-Resurfacing + Digest-Push</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">0/4 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Regelmäßig ein altes ungelesenes Item hochspülen und den gesetzten Notification-Payload mit einem Tap-Handler verbinden.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 3.1</td>
+      <td class="c-task"><div class="tt">Resurfacing selection: weighted pick of old unread items</div>
+          <div class="reason">Gewichtete SQL-Auswahl = Standard-Logik</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/services/resurfacing.py (neu): gewichtete Query, &#x27;zuletzt resurfaced&#x27;-Sperre</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">pytest: nie zweimal binnen N Tagen; nur unread; leere-DB</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 3.2</td>
+      <td class="c-task"><div class="tt">Scheduler job + config flag + admin trigger endpoint</div>
+          <div class="reason">Integration nach Weekly-Digest-Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>scheduler.py, config.py, routers/admin.py (POST /admin/resurface)</code></td>
+      <td class="c-dep">3.1</td>
+      <td class="c-verify">POST /admin/resurface liefert Item; Scheduler-Log zeigt Job</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 3.3</td>
+      <td class="c-task"><div class="tt">Notification tap handler (digest + resurfacing)</div>
+          <div class="reason">Payload existiert; Handler + Cold-Start = Standard mit Zustands-Sorgfalt</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/services/notification_service.dart, main.dart (Cold/Warm-Start-Navigation)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">adb: Notification bei laufender UND gekillter App -&gt; richtiger Screen</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 3.4</td>
+      <td class="c-task"><div class="tt">App-side resurfacing surface (banner &#x27;Wiederentdeckt&#x27;)</div>
+          <div class="reason">Kleines UI-Feature nach Provider-Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/screens/inbox_screen.dart, providers/items_provider.dart, api_client.dart</code></td>
+      <td class="c-dep">3.2, 3.3</td>
+      <td class="c-verify">Banner erscheint nach Trigger, verschwindet nach Lesen</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Admin-Trigger erzeugt Resurfacing-Notification; Tap öffnet Item; Tap auf Digest-Notification öffnet weekly_screen; Scheduler-Job feuert im Dev-Stack.</p>
+    </section><section class="phase" id="P4">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P4</span>KI-Triage der Inbox</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">0/4 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Neue Items beim Ingest gegen bisherige Hoch-Ratings scoren und die Inbox vorsortieren.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 4.1</td>
+      <td class="c-task"><div class="tt">Triage concept: scoring approach decision</div>
+          <div class="reason">Design-Weiche mit Folgekosten: Embedding billig+deterministisch (Empfehlung), LLM-Judge teuer auf CPU</div></td>
+      <td class="c-model"><span class="badge m-fable">Fable 5</span></td>
+      <td class="c-scope"><code>Konzept: Embedding-Cosine gg. Centroid der Hoch-Ratings vs. LLM-Judge vs. Hybrid; Kaltstart &lt;10 Ratings</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Notiz mit Ansatz + Kaltstart-Regel</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 4.2</td>
+      <td class="c-task"><div class="tt">Triage scoring service in ingest pipeline</div>
+          <div class="reason">Scoring mit Centroid, Normalisierung, Kaltstart-Degradation — subtile Fehler entwerten Feature</div></td>
+      <td class="c-model"><span class="badge m-opus">Opus 4.8</span></td>
+      <td class="c-scope"><code>backend/app/services/triage.py (neu), Hook in processing.py, embeddings.py</code></td>
+      <td class="c-dep">4.1</td>
+      <td class="c-verify">pytest mit synthetischen Embeddings: ähnlich-&gt;hoch, unähnlich-&gt;niedrig, Kaltstart-&gt;neutral</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 4.3</td>
+      <td class="c-task"><div class="tt">Alembic migration: triage_score column + backfill</div>
+          <div class="reason">Migration nach Alembic-Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/alembic/versions/* (neu), models/content.py, routers/admin.py (Backfill als Background-Task)</code></td>
+      <td class="c-dep">4.2</td>
+      <td class="c-verify">python -m app.migrate auf DB-Kopie; Backfill scored Bestand</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 4.4</td>
+      <td class="c-task"><div class="tt">App: triage-sorted inbox + score indicator</div>
+          <div class="reason">Sortier-Param + Badge = Standard-UI</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/screens/inbox_screen.dart, widgets/item_card.dart, providers/items_provider.dart, routers/user_items.py (Sort-Param)</code></td>
+      <td class="c-dep">4.3</td>
+      <td class="c-verify">adb: Score-Badge, Sortierung &#x27;Für dich&#x27; umschaltbar</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Items hoch bewerten, ähnliches neues Item -&gt; hoher Score, oben in Inbox; unähnliches unten; Score per pytest abgedeckt.</p>
+    </section><section class="phase" id="P5">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P5</span>Capture-Kanäle</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">0/4 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Reibungsarmes Erfassen von überall: Android-Share ohne App-Öffnen plus ein externer Kanal (Empfehlung: Telegram-Bot).</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 5.1</td>
+      <td class="c-task"><div class="tt">Decide first external capture channel</div>
+          <div class="reason">Empfehlung: Telegram-Bot zuerst — von jedem Gerät, kein Extension-Wartungsaufwand, Kanal später für Digest wiederverwendbar. Bookmarklet als billiges Add-on.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>Produktentscheidung: Telegram-Bot vs. Bookmarklet vs. beides</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Entscheidung dokumentiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 5.2</td>
+      <td class="c-task"><div class="tt">Android share -&gt; background ingest, notification only</div>
+          <div class="reason">Intent-Handling + Hintergrund-POST mit Notification — Android-Lifecycle-Sorgfalt</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/providers/share_intent_provider.dart, notification_service.dart, AndroidManifest.xml</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">adb: Share aus Chrome + weiterer App (Share-Sheet-Issue mittesten) -&gt; Notification, Item in Inbox</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 5.3</td>
+      <td class="c-task"><div class="tt">Telegram bot: URL/note capture against ingest API</div>
+          <div class="reason">python-telegram-bot nach Standardmuster; Chat-ID-Allowlist als Single-User-Schutz</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/services/telegram_bot.py (neu), config.py (TELEGRAM_BOT_TOKEN, Chat-ID), ingest.py-Logik</code></td>
+      <td class="c-dep">5.1</td>
+      <td class="c-verify">URL an Bot -&gt; Bestätigung mit Titel; fremde Chat-ID ignoriert; Neustart-fest</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 5.4</td>
+      <td class="c-task"><div class="tt">Bookmarklet page served by backend</div>
+          <div class="reason">Boilerplate-JS/HTML ohne Logik-Tiefe</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>backend/app/routers/admin.py (GET /capture-bookmarklet), JS-Einzeiler -&gt; POST /items</code></td>
+      <td class="c-dep">5.1</td>
+      <td class="c-verify">Bookmarklet in Firefox+Chrome -&gt; Item in Inbox</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> URL aus Chrome teilen -&gt; nur Notification, Item in Inbox; URL an Telegram-Bot -&gt; Bestätigung, Item in Inbox; Bookmarklet legt Item vom Desktop an.</p>
+    </section><section class="phase" id="P6">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P6</span>Backend-Härtung &amp; Betrieb (v1.0-Fundament)</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#d97706">Wert: mittel</span>
+          <span class="prog">0/8 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Backend produktionsfest: konsistente Fehler, Health inkl. Ollama, sauberes Shutdown, Limits, Logging, automatische Backups.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.1</td>
+      <td class="c-task"><div class="tt">Consistent error codes + global exception handlers</div>
+          <div class="reason">Durchgängige Refaktorierung mit Urteil pro Fehlerfall</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/main.py, routers/*, schemas.py (Error-Schema)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">pytest 404/422/502-Ollama-down -&gt; einheitliches Error-Schema</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.2</td>
+      <td class="c-task"><div class="tt">Health check with Ollama dependency status</div>
+          <div class="reason">Kleine Integration mit Timeout-Handling</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/main.py (/health: db+ollama+Modell), /admin/ollama/check-Logik wiederverwenden</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">/health zeigt ollama:ok; Ollama gestoppt -&gt; degraded, HTTP 200 bleibt</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.3</td>
+      <td class="c-task"><div class="tt">Graceful shutdown (scheduler, background tasks, pulls)</div>
+          <div class="reason">Lifespan-Aufräumen nach FastAPI-Muster; Vorsicht bei laufendem Auto-Pull</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>main.py (Lifespan), scheduler.py, Backfill-Tasks in admin.py</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">SIGTERM während Reprocess -&gt; sauberer Exit, kein Zombie, DB-konsistent</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.4</td>
+      <td class="c-task"><div class="tt">Container resource limits + log rotation</div>
+          <div class="reason">Compose-Boilerplate; Grenzwerte aus 7,6-GB-VPS ableiten</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>docker-compose.yml (mem_limit/cpus, logging max-size), VPS-Compose analog</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">docker inspect zeigt Limits; Logs rotieren; Ollama startet noch qwen2.5:3b</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.5</td>
+      <td class="c-task"><div class="tt">API rate limiting (slowapi, key-scoped)</div>
+          <div class="reason">Bibliotheks-Integration mit Konfig-Logik; großzügige Limits gegen Amok-Clients</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>main.py (Middleware), config.py, Ausnahme /health</code></td>
+      <td class="c-dep">6.1</td>
+      <td class="c-verify">100-Request-Schleife -&gt; 429 mit Retry-After; App unbeeinträchtigt</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.6</td>
+      <td class="c-task"><div class="tt">Structured logging (JSON, request-id)</div>
+          <div class="reason">Querschnitt mit Augenmaß (keine Secrets/raw_text in Logs)</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>main.py (Logging-Setup, Request-ID-Middleware), services/*</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">docker logs zeigt JSON mit request_id; Ingest end-to-end verfolgbar</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.7</td>
+      <td class="c-task"><div class="tt">Automated DB backups via cron + retention</div>
+          <div class="reason">Ops-Skripting auf verifiziertem backup-Befehl</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>VPS-Crontab, deploy.sh backup, Retention (7 täglich + 4 wöchentlich)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Cron manuell -&gt; Dump; Rotation greift; Stichproben-Restore (Drill-Muster)</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 6.8</td>
+      <td class="c-task"><div class="tt">API versioning decision</div>
+          <div class="reason">Empfehlung: JETZT NICHT. Single-User, eine Client-App, App+Backend deployen zusammen -&gt; /v1 wäre Zeremonie. Erst bei Extension/Multi-Device relevant.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>backend/app/main.py (Router-Prefix)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Entscheidung dokumentiert</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Kaputte Requests -&gt; strukturierte Fehler mit stabilen Codes; /health meldet Ollama; docker compose stop ohne Traceback; Rate-Limit greift; Backup-Cron erzeugt automatisch Backup + Restore-Test.</p>
+    </section><section class="phase" id="P7">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P7</span>App-Qualität: Tests, Fehler-UX, Polish</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#d97706">Wert: mittel</span>
+          <span class="prog">0/8 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Flutter-App testbar und robust machen: echte Tests statt Scheinabdeckung, sichtbares Fehler-Handling, bekannte UI-Issues fixen.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.1</td>
+      <td class="c-task"><div class="tt">Unit tests for providers/notifiers (existing MockApiClient)</div>
+          <div class="reason">Test-Gerüste über Riverpod mit Verständnis der State-Übergänge</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/test/providers/ (neu), MockApiClient, providers/*</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">flutter test grün; Coverage load/error/refresh der 4 Provider</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.2</td>
+      <td class="c-task"><div class="tt">De-flake integration tests: assert for real</div>
+          <div class="reason">Urteil nötig, welche Tests echte Szenarien prüfen — kein mechanischer Ersatz</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/integration_test/*</code></td>
+      <td class="c-dep">7.1</td>
+      <td class="c-verify">grep isNotEmpty leer; Test schlägt fehl, wenn man Widget umbenennt</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.3</td>
+      <td class="c-task"><div class="tt">Error-handling UI: offline/API-error states with retry</div>
+          <div class="reason">Durchgängige UX-Integration über mehrere Screens</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/screens/{inbox,detail,weekly,graph}_screen.dart, widgets/ErrorRetryWidget (neu), api_client.dart</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">adb+Flugmodus: jeder Screen Fehlerkarte+Retry; Retry lädt nach Netz-Rückkehr</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.4</td>
+      <td class="c-task"><div class="tt">Loading skeletons for list and detail</div>
+          <div class="reason">Shimmer-Skeletons = UI-Boilerplate</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>app/lib/widgets/skeleton_card.dart (neu), inbox+detail</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Langsames Netz zeigt Skeletons statt Spinner</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.5</td>
+      <td class="c-task"><div class="tt">Fix long-URL truncation in item cards</div>
+          <div class="reason">Mechanischer Ein-Widget-Fix (Known Issue)</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>app/lib/widgets/item_card.dart</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">300-Zeichen-URL -&gt; Card ohne Overflow</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.6</td>
+      <td class="c-task"><div class="tt">List performance: pagination/lazy loading</div>
+          <div class="reason">Paginierung über App+Backend-Grenze</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>providers/items_provider.dart, inbox_screen.dart, routers/user_items.py (limit/offset)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">218+ Items: ruckelfrei, inkrementelles Laden</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.7</td>
+      <td class="c-task"><div class="tt">Accessibility pass (semantics, touch targets, contrast)</div>
+          <div class="reason">Systematische Durchsicht mit Urteil, kein Schema-F</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/widgets/*, screens/*</code></td>
+      <td class="c-dep">7.3, 7.4</td>
+      <td class="c-verify">uiautomator: interaktive Elemente mit content-desc; A11y-Tests grün</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 7.8</td>
+      <td class="c-task"><div class="tt">i18n scaffolding (gen-l10n, de source, en secondary)</div>
+          <div class="reason">Setup + flächige Extraktion; reine Übersetzung Haiku-nacharbeitbar</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/l10n/*.arb (neu), pubspec.yaml, String-Extraktion</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">App in de+en, keine fehlenden Keys</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> flutter analyze sauber; flutter test grün mit echten Assertions (keine isNotEmpty-Guards); Flugmodus zeigt Fehlerzustand mit Retry; lange URL sauber gekürzt.</p>
+    </section><section class="phase" id="P8">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P8</span>Collections, User-Tags &amp; Smart Collections (v0.3.0)</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#d97706">Wert: mittel</span>
+          <span class="prog">0/6 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Manuelle Organisation ergänzend zu KI-Topics: Collections, eigene Tags, regelbasierte Smart Collections.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 8.1</td>
+      <td class="c-task"><div class="tt">Data model design: collections, tags, smart rules</div>
+          <div class="reason">Datenmodell-Weiche mit langfristigen Folgekosten (Rules-Format schwer änderbar)</div></td>
+      <td class="c-model"><span class="badge m-fable">Fable 5</span></td>
+      <td class="c-scope"><code>Konzept: Tabellen, Smart-Rules-Format (JSON vs. feste Felder), Abgrenzung Tags vs. KI-Topics</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Design-Notiz mit Schema + Regel-Beispielen</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 8.2</td>
+      <td class="c-task"><div class="tt">Alembic migration + SQLAlchemy models</div>
+          <div class="reason">Migration nach Muster; Alembic = Schema-Wahrheit</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/alembic/versions/* (neu), models/content.py, schemas.py</code></td>
+      <td class="c-dep">8.1</td>
+      <td class="c-verify">python -m app.migrate auf Prod-Kopie; Up+Down</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 8.3</td>
+      <td class="c-task"><div class="tt">CRUD endpoints: collections, tags, assignment</div>
+          <div class="reason">Standard-CRUD nach Router-Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/routers/collections.py (neu), user_items.py (Achtung /items/bulk vor /items/{id})</code></td>
+      <td class="c-dep">8.2</td>
+      <td class="c-verify">pytest CRUD + Bulk; 422-Routen-Falle explizit getestet</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 8.4</td>
+      <td class="c-task"><div class="tt">App: collections UI + drift schema bump</div>
+          <div class="reason">Drift-Migration + Screens; Bump+onUpgrade verlangt Sorgfalt</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/database/*.dart (schemaVersion+onUpgrade+build_runner), collections_screen.dart (neu), collections_provider.dart (neu), item_card.dart</code></td>
+      <td class="c-dep">8.3</td>
+      <td class="c-verify">App-Update von alter DB-Version per adb -&gt; Daten intakt</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 8.5</td>
+      <td class="c-task"><div class="tt">Smart collections: rule evaluation</div>
+          <div class="reason">Regel-zu-SQL nach fixem Format; flach halten (UND-Filter)</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/services/ (Regel-Query-Builder), collections.py (smart-Endpoint)</code></td>
+      <td class="c-dep">8.3</td>
+      <td class="c-verify">pytest: Topic+unread+Datum korrekt; neues Item erscheint ohne Zuweisung</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 8.6</td>
+      <td class="c-task"><div class="tt">Drag &amp; drop items into collections</div>
+          <div class="reason">Flutter-Drag&amp;Drop = Standard-Widget</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/screens/{inbox,collections}_screen.dart (Draggable/DragTarget)</code></td>
+      <td class="c-dep">8.4</td>
+      <td class="c-verify">adb: Item per Long-Press in Collection -&gt; persistiert</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Collection anlegen, Items zuweisen (auch Drag&amp;Drop), Daten überstehen Neustart+Deploy; Smart Collection aktualisiert sich automatisch; Drift-onUpgrade getestet.</p>
+    </section><section class="phase" id="P9">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P9</span>AI-Erweiterungen: Prompts, Modell-Routing, Key-Insights (v0.4.0)</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#d97706">Wert: mittel</span>
+          <span class="prog">0/5 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">KI-Pipeline konfigurierbar machen und pro Item mehr herausholen (Key-Insights, bessere Related-Sicht).</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 9.1</td>
+      <td class="c-task"><div class="tt">Configurable prompts: override storage + admin API + UI</div>
+          <div class="reason">CRUD + Fallback-Kette (Override-&gt;Default) — Standard</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>prompts/* als Defaults, Override-Store (Migration), admin.py (GET/PUT prompts), settings_screen.dart (Editor+Reset)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Prompt via App ändern, reprocessen -&gt; wirkt; Reset stellt Default her</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 9.2</td>
+      <td class="c-task"><div class="tt">Per-task model routing (summary/topics/chat separat)</div>
+          <div class="reason">Konfig-Refactoring entlang Modell-Routing-Konzept; Embedding bleibt fix mxbai (1024-dim)</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>config.py (OLLAMA_MODEL -&gt; Task-Map), summarizer.py, rag.py, Auto-Pull pro Modell, /admin/ollama/check erweitern</code></td>
+      <td class="c-dep">P2</td>
+      <td class="c-verify">Dev: Summary 7b, Chat anderes Modell -&gt; Logs zeigen beide; fehlendes auto-gepullt</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 9.3</td>
+      <td class="c-task"><div class="tt">Key-insights prompt (German, structured output)</div>
+          <div class="reason">Prompt-Text nach structured-outputs-Muster</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>backend/app/prompts/key_insights.txt (neu), JSON-Schema analog summary</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Ollama-Call liefert 3-5 saubere deutsche Insights</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 9.4</td>
+      <td class="c-task"><div class="tt">Key-insights in pipeline + storage + detail screen</div>
+          <div class="reason">Pipeline-Erweiterung nach Summary-Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>processing.py, summarizer.py, Migration (insights-Spalte), schemas.py, detail_screen.dart, content_item.dart</code></td>
+      <td class="c-dep">9.3</td>
+      <td class="c-verify">reprocessen -&gt; Insights in API + detail_screen; ./dev.sh test grün</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 9.5</td>
+      <td class="c-task"><div class="tt">Related-content section on detail screen</div>
+          <div class="reason">item_relations existieren — nur exponieren+anzeigen</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>routers/user_items.py (GET /items/{id}/related aus item_relations), detail_screen.dart (&#x27;Verwandt&#x27; mit SIMILAR/RELATED)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Item mit Relationen öffnen -&gt; verwandte Items tappbar, Label korrekt</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Prompt in Settings ändern -&gt; nächstes Item nutzt ihn; Summary+Chat auf verschiedenen Modellen (Log); Item zeigt 3-5 deutsche Key-Insights; detail_screen zeigt Related mit Begründung.</p>
+    </section><section class="phase" id="P10">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P10</span>Export, Import, RSS &amp; Offline-Cache (v0.5.0)</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#d97706">Wert: mittel</span>
+          <span class="prog">0/5 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Daten rein und raus: Export in offene Formate, Import aus Read-Later-Diensten, RSS-Auto-Ingest, Offline-Lese-Cache.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 10.1</td>
+      <td class="c-task"><div class="tt">Offline mode decision: Option A cache vs Option B full</div>
+          <div class="reason">Empfehlung: Option A (Lese-Cache) — drift ist verdrahtet, Konflikt-Resolution (B) teuerster Posten bei minimalem Single-User-Nutzen.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>app/lib/database/*, repositories/items_repository.dart</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Entscheidung dokumentiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 10.2</td>
+      <td class="c-task"><div class="tt">Export to Markdown + JSON</div>
+          <div class="reason">Serialisierung nach klaren Formaten auf vorhandenem Router</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/routers/export.py (existiert — md/json + Filter), App-Settings-Trigger</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Export -&gt; ZIP mit .md pro Item + manifest.json; pytest auf Format</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 10.3</td>
+      <td class="c-task"><div class="tt">Import from Raindrop/Pocket/Instapaper</div>
+          <div class="reason">Parser für dokumentierte Formate + Batch nach Muster</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/routers/import.py (neu): Parser, Dedupe gg. URLs, Background-Batch</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Beispiel-Exporte importieren -&gt; korrekte Zahl, kein Doppel-Import-Duplikat</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 10.4</td>
+      <td class="c-task"><div class="tt">RSS feed auto-ingest</div>
+          <div class="reason">Feedparser + Scheduler nach Weekly-Muster; Dedupe über GUID/URL</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/app/services/rss.py (neu, feedparser), Migration (feeds), scheduler.py (Poll), CRUD, App-Settings</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Test-Feed abonnieren, Job triggern -&gt; neue Items; 2. Lauf keine Duplikate</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 10.5</td>
+      <td class="c-task"><div class="tt">Offline read cache (Option A assumed)</div>
+          <div class="reason">Cache-Schicht ohne Konfliktlogik; bei Option B stattdessen Opus</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/database/*.dart (Cache-Tabellen, Bump), repositories/items_repository.dart (cache-first), Offline-Banner</code></td>
+      <td class="c-dep">10.1, 7.3</td>
+      <td class="c-verify">laden, Flugmodus, App killen+neu -&gt; Inbox+Detail lesbar; online -&gt; Refresh überschreibt</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> MD/JSON-Export öffnet sauber; Raindrop-Export importiert ohne Duplikate; RSS-Feed erzeugt neue Items; App im Flugmodus zeigt geladene Items lesbar.</p>
+    </section><section class="phase" id="P11">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P11</span>Knowledge-Graph-Ausbau &amp; Monitoring</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#64748b">Wert: niedrig</span>
+          <span class="prog">0/5 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Pseudo-Graph erlebbar machen (Traversierung, Visualisierung) und dem VPS leichtgewichtige Observability geben.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 11.1</td>
+      <td class="c-task"><div class="tt">Graph traversal endpoint (n-hop via recursive CTE)</div>
+          <div class="reason">Rekursive SQL mit Zyklen-/Explosionsschutz — echte Algorithmik; weiter KEIN Neo4j (&lt;10k)</div></td>
+      <td class="c-model"><span class="badge m-opus">Opus 4.8</span></td>
+      <td class="c-scope"><code>backend/app/routers/ (graph), rekursive CTE über item_relations mit Tiefen-/Knotenlimit</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">pytest: 2-Hop korrekt, Zyklus terminiert, Knotenlimit greift</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 11.2</td>
+      <td class="c-task"><div class="tt">Interactive graph visualization in app</div>
+          <div class="reason">UI auf bestehendem Screen mit Graph-Bibliothek</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app/lib/screens/graph_screen.dart (existiert — Force-Layout, Fokus, Hop-Tiefe, Tap-&gt;detail)</code></td>
+      <td class="c-dep">11.1</td>
+      <td class="c-verify">adb: Graph öffnen, zoomen, Knoten-Tap navigiert; 218 Items flüssig</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 11.3</td>
+      <td class="c-task"><div class="tt">Monitoring approach decision</div>
+          <div class="reason">Empfehlung: leichtgewichtig — /metrics + externer Uptime-Check (Uptime Kuma auf dem Homeserver). Voller Prometheus+Grafana frisst VPS-RAM, den Ollama braucht.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>VPS-Compose, v1.0.0</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Entscheidung + RAM-Budget-Rechnung</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 11.4</td>
+      <td class="c-task"><div class="tt">Prometheus /metrics endpoint</div>
+          <div class="reason">Bibliotheks-Integration + Metrik-Auswahl</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>main.py (instrumentator), Custom-Counter in processing.py+summarizer.py</code></td>
+      <td class="c-dep">11.3, 6.6</td>
+      <td class="c-verify">curl /metrics zeigt Counter; nach Ingest zählen ingest_total + ollama_duration</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 11.5</td>
+      <td class="c-task"><div class="tt">Monitoring deployment (scrape / Uptime Kuma)</div>
+          <div class="reason">Compose-Boilerplate nach Entscheidung</div></td>
+      <td class="c-model"><span class="badge m-haiku">Haiku 4.5</span></td>
+      <td class="c-scope"><code>Homeserver-Compose, VPS /metrics via Traefik (mit API-Key!)</code></td>
+      <td class="c-dep">11.3, 11.4</td>
+      <td class="c-verify">Dashboard zeigt VPS-Metriken; /metrics NICHT unauth öffentlich</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Graph-Screen zeigt 2-Hop-Subgraph, Knoten-Tap öffnet Item; /metrics im Prometheus-Format; Monitoring zeigt Ingest-Zähler + Ollama-Latenz.</p>
+    </section><section class="phase" id="P12">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P12</span>Ausblick (bewusst später): Multi-User, Provider, iOS, Sync</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#64748b">Wert: niedrig</span>
+          <span class="prog">0/5 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Die großen Weichen sauber vordenken, aber nichts bauen, bevor die Kern-Roadmap steht.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="">
+      <td class="c-id"><span class="st open">○</span> 12.1</td>
+      <td class="c-task"><div class="tt">Multi-user decision &amp; architecture sketch</div>
+          <div class="reason">Empfehlung: NICHT bauen solange Single-User — jede Multi-User-Zeile verteuert RAG/Triage/Collections. Erst bei zweitem realem Nutzer.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>IDEAS.md; bei Ja: models/user.py, UserItem-Basis, normales Login, KEIN Vault</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Entscheidung + Bedingung dokumentiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 12.2</td>
+      <td class="c-task"><div class="tt">LLM provider abstraction (Ollama/OpenAI/Mistral/Claude)</div>
+          <div class="reason">Empfehlung: nach 9.2 dünnes Provider-Interface, falls Cloud-Qualität für RAG gewünscht; Ollama bleibt Default. Structured-Outputs-Kompatibilität = eigentliche Arbeit -&gt; bei Ja Sonnet.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>summarizer.py, config.py, App-Settings (API-Keys)</code></td>
+      <td class="c-dep">9.2</td>
+      <td class="c-verify">Entscheidung dokumentiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 12.3</td>
+      <td class="c-task"><div class="tt">Browser extension &amp; multi-device sync decision</div>
+          <div class="reason">Empfehlung: Extension nur falls Bookmarklet nicht reicht; Sync zurückstellen bis zweites Gerät real.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>v0.5.0-Rest; hängt an 10.1 (Option B Voraussetzung für Sync)</code></td>
+      <td class="c-dep">10.1, 5.1</td>
+      <td class="c-verify">Entscheidung dokumentiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 12.4</td>
+      <td class="c-task"><div class="tt">iOS support decision</div>
+          <div class="reason">Empfehlung: zurückstellen — ohne Mac/Apple-Account/iOS-Gerät weder Build noch Verifikation möglich.</div></td>
+      <td class="c-model"><span class="badge m-ask">?</span></td>
+      <td class="c-scope"><code>app/ (portierbar), Build-/Signing fehlt (kein Mac)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Entscheidung dokumentiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 12.5</td>
+      <td class="c-task"><div class="tt">Cross-encoder/BERT relation quality experiment</div>
+          <div class="reason">Experimentdesign vor Integration; auf CPU-VPS nur als Offline-Batch sinnvoll — genau die Design-Frage</div></td>
+      <td class="c-model"><span class="badge m-fable">Fable 5</span></td>
+      <td class="c-scope"><code>IDEAS.md; Experiment: Cross-Encoder-Reranking vs. Cosine 0.75, Messkriterium auf echten Paaren</code></td>
+      <td class="c-dep">P11</td>
+      <td class="c-verify">Skizze mit Messkriterium; Go/No-Go danach</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Für jeden Punkt existiert eine dokumentierte Entscheidung (bauen/nicht/wann) — Verifikation ist Entscheidungsqualität, nicht Code.</p>
+    </section>
+
+<p class="foot">Erstellt per Modell-Vorauswahl (Fable 5). Single Source of Truth fürs Modell-Routing dieser Arbeitspakete — Etiketten bei Bedarf während der Ausführung nachziehen.</p>
+</div></body></html>
