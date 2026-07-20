@@ -180,11 +180,12 @@ CREATE TABLE item_relations (
 
 ## Known Issues
 
-- [ ] Long URLs may truncate in item cards
+- [x] Long URLs may truncate in item cards ✅ v0.4.5 (Quelle einzeilig + Ellipsis, Widget-Test)
 - [ ] Share sheet may not work with all apps
-- [ ] Settings: nach Ändern von Server-URL/API-Key nutzt die Inbox den alten
-      `ApiClient` bis zum App-Neustart (api/items-Provider werden beim Speichern
-      nicht invalidiert) — gefunden 2026-07-19 beim API-Key-Rollout
+- [x] Settings: nach Ändern von Server-URL/API-Key nutzt die Inbox den alten
+      `ApiClient` bis zum App-Neustart ✅ v0.4.5 — `ItemsNotifier` lädt beim
+      Erzeugen selbst und wird bei Settings-Änderung neu erzeugt; live verifiziert
+      (frische Installation → Key eintragen → Inbox lädt ohne Neustart)
 - [x] Processing status doesn't auto-refresh ✅ (Polling alle 5s solange pending)
 
 ## Contributing
