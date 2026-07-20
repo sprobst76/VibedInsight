@@ -30,7 +30,7 @@ async def chat(
         raise HTTPException(status_code=422, detail="Frage darf nicht leer sein")
 
     try:
-        result = await answer_question(question, db, top_k=request.top_k)
+        result = await answer_question(question, db, user, top_k=request.top_k)
     except Exception as e:  # noqa: BLE001 — surface a clean 502 instead of a 500 traceback
         logger.error(f"RAG chat failed: {e}")
         raise HTTPException(

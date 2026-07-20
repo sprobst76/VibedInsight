@@ -12,8 +12,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.database import async_session_maker
+from app.dependencies import get_or_create_owner
 from app.main import app
 from app.models.content import ContentEmbedding, ContentItem, ProcessingStatus
+from app.models.user import User, UserItem
 from app.services import rag
 
 EMBED_DIM = 1024
@@ -42,6 +44,7 @@ async def client(apply_migrations):
 def test_build_context_numbers_sources_and_reports_similarity():
     items = [
         (
+            101,
             ContentItem(
                 id=uuid.uuid4(),
                 title="Async in Python",
@@ -52,6 +55,7 @@ def test_build_context_numbers_sources_and_reports_similarity():
             0.91,
         ),
         (
+            102,
             ContentItem(
                 id=uuid.uuid4(),
                 title="Event Loops",
@@ -69,6 +73,7 @@ def test_build_context_numbers_sources_and_reports_similarity():
     assert "[2] Event Loops — docs.example" in context
     assert [s.n for s in sources] == [1, 2]
     assert sources[0].title == "Async in Python"
+    assert sources[0].id == "101"  # UserItem id, not the UUID
     assert sources[0].similarity == pytest.approx(0.91)
     assert sources[1].url is None
 
@@ -76,6 +81,7 @@ def test_build_context_numbers_sources_and_reports_similarity():
 def test_build_context_respects_char_budget():
     items = [
         (
+            i,
             ContentItem(
                 id=uuid.uuid4(),
                 title=f"Item {i}",
@@ -113,7 +119,7 @@ async def test_answer_question_without_hits_skips_llm(monkeypatch):
     monkeypatch.setattr(rag, "_ollama_chat_with_retry", _boom)
 
     async with async_session_maker() as db:
-        result = await rag.answer_question("Was weiß ich über X?", db)
+        result = await rag.answer_question("Was weiß ich über X?", db, User(id=1))
 
     assert result.used_context is False
     assert result.sources == []
@@ -126,8 +132,9 @@ async def test_answer_question_without_hits_skips_llm(monkeypatch):
 
 
 async def test_chat_endpoint_answers_from_seeded_item(client, monkeypatch):
-    # Seed one item with an embedding.
+    # Seed one item with an embedding, linked to the owner via UserItem.
     async with async_session_maker() as db:
+        owner = await get_or_create_owner(db)
         item = ContentItem(
             title="Async in Python",
             summary="async/await ermöglicht nebenläufigen Code.",
@@ -142,7 +149,10 @@ async def test_chat_endpoint_answers_from_seeded_item(client, monkeypatch):
                 content_id=item.id, embedding=_vec(), model="mxbai-embed-large"
             )
         )
+        user_item = UserItem(user_id=owner.id, content_id=item.id)
+        db.add(user_item)
         await db.commit()
+        seeded_user_item_id = user_item.id
 
     # Same vector => cosine distance 0 => similarity 1.0 (>= floor).
     monkeypatch.setattr(rag, "generate_embedding", lambda text: _fake_async(_vec()))
@@ -161,8 +171,11 @@ async def test_chat_endpoint_answers_from_seeded_item(client, monkeypatch):
     assert len(data["sources"]) >= 1
     top = data["sources"][0]
     assert top["n"] == 1
-    assert top["title"] == "Async in Python"
     assert top["similarity"] >= 0.99
+    # The seeded item is addressable by its UserItem id (persistent test DB may
+    # hold identical rows from earlier runs, so assert membership, not position).
+    ids = [s["id"] for s in data["sources"]]
+    assert str(seeded_user_item_id) in ids
 
 
 async def test_chat_endpoint_rejects_empty_question(client):

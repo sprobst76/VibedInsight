@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.content import ContentEmbedding, ContentItem
+from app.models.user import User, UserItem
 from app.services.embeddings import generate_embedding
 from app.services.summarizer import _ollama_chat_with_retry, load_prompt
 
@@ -30,6 +31,7 @@ class RagSource:
     """One retrieved item, numbered for citation."""
 
     n: int
+    # UserItem id (int) — the id the app addresses items by (/item/{id}).
     id: str
     title: str
     url: str | None
@@ -47,24 +49,30 @@ class RagResult:
 async def _retrieve(
     question_embedding: list[float],
     db: AsyncSession,
+    user_id: int,
     top_k: int,
     min_similarity: float,
-) -> list[tuple[ContentItem, float]]:
-    """Top-K items by cosine similarity to the question, above the floor."""
+) -> list[tuple[int, ContentItem, float]]:
+    """Top-K of the user's items by cosine similarity, above the floor.
+
+    Returns (user_item_id, item, similarity) — the user_item_id is what the
+    app uses to open an item.
+    """
     max_distance = 1.0 - min_similarity
     distance = ContentEmbedding.embedding.cosine_distance(question_embedding)
     result = await db.execute(
-        select(ContentItem, distance.label("distance"))
+        select(UserItem.id, ContentItem, distance.label("distance"))
         .join(ContentEmbedding, ContentEmbedding.content_id == ContentItem.id)
-        .where(distance <= max_distance)
+        .join(UserItem, UserItem.content_id == ContentItem.id)
+        .where(UserItem.user_id == user_id, distance <= max_distance)
         .order_by(distance)
         .limit(top_k)
     )
-    return [(item, 1.0 - float(dist)) for item, dist in result.all()]
+    return [(uiid, item, 1.0 - float(dist)) for uiid, item, dist in result.all()]
 
 
 def _build_context(
-    retrieved: list[tuple[ContentItem, float]],
+    retrieved: list[tuple[int, ContentItem, float]],
     char_budget: int,
 ) -> tuple[str, list[RagSource]]:
     """Number the retrieved items and pack them into the context budget."""
@@ -72,7 +80,7 @@ def _build_context(
     sources: list[RagSource] = []
     used = 0
 
-    for i, (item, similarity) in enumerate(retrieved, start=1):
+    for i, (user_item_id, item, similarity) in enumerate(retrieved, start=1):
         title = item.title or item.url or "Ohne Titel"
         body = (item.summary or item.raw_text or "").strip()
         header = f"[{i}] {title}"
@@ -91,7 +99,7 @@ def _build_context(
         sources.append(
             RagSource(
                 n=i,
-                id=str(item.id),
+                id=str(user_item_id),
                 title=title,
                 url=item.url,
                 source=item.source,
@@ -105,6 +113,7 @@ def _build_context(
 async def answer_question(
     question: str,
     db: AsyncSession,
+    user: User,
     top_k: int | None = None,
 ) -> RagResult:
     """Answer a question from the user's archive via retrieval-augmented generation."""
@@ -124,7 +133,7 @@ async def answer_question(
         )
 
     retrieved = await _retrieve(
-        question_embedding, db, top_k, settings.rag_min_similarity
+        question_embedding, db, user.id, top_k, settings.rag_min_similarity
     )
     if not retrieved:
         return RagResult(answer=NO_CONTEXT_ANSWER, sources=[], used_context=False)
