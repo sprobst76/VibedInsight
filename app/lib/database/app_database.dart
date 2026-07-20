@@ -19,7 +19,9 @@ part 'app_database.g.dart';
   SyncMetadata,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  /// Production uses the on-disk connection; tests can inject an in-memory
+  /// executor (e.g. `NativeDatabase.memory()`) to run without path_provider.
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 2;

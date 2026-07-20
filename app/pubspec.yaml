@@ -61,6 +61,9 @@ dev_dependencies:
   build_runner: ^2.4.14
   json_serializable: ^6.9.4
   drift_dev: ^2.22.1
+  # Lets in-memory drift tests load the system libsqlite3 (see
+  # test/helpers/sqlite_test_setup.dart). Already present transitively via drift.
+  sqlite3: ^2.4.0
 
 flutter:
   uses-material-design: true
