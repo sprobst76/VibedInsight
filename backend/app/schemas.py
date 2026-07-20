@@ -120,6 +120,12 @@ class UserItemResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ResurfaceResponse(BaseModel):
+    """A resurfaced item to rediscover, or null when there is nothing to show."""
+
+    item: UserItemResponse | None = None
+
+
 class UserItemsListResponse(BaseModel):
     """Paginated list of user items."""
 

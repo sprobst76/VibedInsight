@@ -11,6 +11,7 @@ import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete
 
 from app.database import async_session_maker
 from app.dependencies import get_or_create_owner
@@ -154,6 +155,7 @@ async def test_chat_endpoint_answers_from_seeded_item(client, monkeypatch):
         db.add(user_item)
         await db.commit()
         seeded_user_item_id = user_item.id
+        seeded_content_id = item.id
 
     # Same vector => cosine distance 0 => similarity 1.0 (>= floor).
     monkeypatch.setattr(rag, "generate_embedding", lambda text: _fake_async(_vec()))
@@ -177,6 +179,12 @@ async def test_chat_endpoint_answers_from_seeded_item(client, monkeypatch):
     # hold identical rows from earlier runs, so assert membership, not position).
     ids = [s["id"] for s in data["sources"]]
     assert str(seeded_user_item_id) in ids
+
+    # Clean up so repeated local runs don't accumulate identical-vector rows
+    # (which would make the membership assertion flaky). Cascades to embedding.
+    async with async_session_maker() as db:
+        await db.execute(delete(ContentItem).where(ContentItem.id == seeded_content_id))
+        await db.commit()
 
 
 async def test_chat_endpoint_rejects_empty_question(client):
@@ -202,6 +210,7 @@ async def test_chat_stream_emits_sources_then_deltas(client, monkeypatch):
         )
         db.add(UserItem(user_id=owner.id, content_id=item.id))
         await db.commit()
+        seeded_content_id = item.id
 
     monkeypatch.setattr(rag, "generate_embedding", lambda text: _fake_async(_vec()))
 
@@ -221,6 +230,10 @@ async def test_chat_stream_emits_sources_then_deltas(client, monkeypatch):
     deltas = [line["text"] for line in lines if line["type"] == "delta"]
     assert "".join(deltas) == "Hallo Welt"
     assert lines[-1]["type"] == "done"
+
+    async with async_session_maker() as db:
+        await db.execute(delete(ContentItem).where(ContentItem.id == seeded_content_id))
+        await db.commit()
 
 
 async def test_chat_stream_without_hits_emits_answer_event(client, monkeypatch):

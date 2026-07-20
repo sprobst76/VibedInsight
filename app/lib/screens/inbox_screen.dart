@@ -10,6 +10,7 @@ import '../models/content_item.dart';
 import '../providers/api_provider.dart';
 import '../providers/items_provider.dart';
 import '../providers/share_intent_provider.dart';
+import '../providers/resurfacing_provider.dart';
 import '../providers/topics_provider.dart';
 import '../providers/weekly_provider.dart';
 import '../utils/error_messages.dart';
@@ -40,6 +41,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     // intent provider here (handles URLs shared via notifications).
     Future.microtask(() {
       ref.read(shareIntentProvider);
+      // Serendipity: maybe surface an old, unread item to rediscover.
+      ref.read(resurfacingProvider.notifier).load();
     });
 
     // Pagination
@@ -471,6 +474,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(itemsProvider);
     final topicsAsync = ref.watch(topicsProvider);
+    final resurfaced = ref.watch(resurfacingProvider);
 
     return Scaffold(
       appBar: state.isSelectionMode
@@ -478,6 +482,9 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           : _buildNormalAppBar(),
       body: Column(
         children: [
+          // Serendipity: rediscovered old item
+          if (resurfaced != null && !state.isSelectionMode)
+            _buildResurfacingBanner(resurfaced),
           // Offline indicator banner
           if (state.isOffline || state.isFromCache)
             _buildOfflineBanner(state),
@@ -504,6 +511,59 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               icon: const Icon(Icons.add),
               label: Text(AppLocalizations.of(context).add),
             ),
+    );
+  }
+
+  Widget _buildResurfacingBanner(ContentItem item) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.secondaryContainer,
+      child: InkWell(
+        onTap: () {
+          ref.read(resurfacingProvider.notifier).dismiss();
+          context.push('/item/${item.id}');
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 4, 10),
+          child: Row(
+            children: [
+              Icon(Icons.auto_awesome,
+                  size: 20, color: scheme.onSecondaryContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.resurfacedTitle,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.displayTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: scheme.onSecondaryContainer),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                color: scheme.onSecondaryContainer,
+                tooltip: MaterialLocalizations.of(context).closeButtonLabel,
+                onPressed: () =>
+                    ref.read(resurfacingProvider.notifier).dismiss(),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

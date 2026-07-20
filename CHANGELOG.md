@@ -5,6 +5,20 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-07-20
+
+### Added — Serendipity-Resurfacing „Wiederentdeckt" (P3)
+- **`GET /resurface`**: liefert ein gewichtet-zufälliges altes, ungelesenes,
+  nicht-archiviertes Item (älter = wahrscheinlicher; Mindestalter konfigurierbar
+  via `resurfacing_min_age_days`, abschaltbar via `resurfacing_enabled`).
+- **App**: „Wiederentdeckt"-Banner in der Inbox (antippbar → öffnet das Item,
+  wegwischbar) plus eine **lokale Notification** (max. 1×/Tag) beim App-Start,
+  wenn ein Item hochgespült wird.
+- **Notification-Tap-Handler verdrahtet** (war ein leerer Stub): Tap navigiert
+  jetzt zum Ziel — Item-ID → Detail, `weekly:<id>` → Wochen-Digest — sowohl im
+  laufenden Betrieb als auch beim Kaltstart aus einer Notification
+  (`utils/notification_routes.dart`, unit-getestet).
+
 ## [0.5.1] - 2026-07-20
 
 ### Added — RAG-Streaming

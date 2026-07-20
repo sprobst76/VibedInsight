@@ -163,6 +163,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sources'**
   String get chatSources;
+
+  /// Label of the banner that resurfaces an old, unread item
+  ///
+  /// In en, this message translates to:
+  /// **'Rediscovered'**
+  String get resurfacedTitle;
 }
 
 class _AppLocalizationsDelegate

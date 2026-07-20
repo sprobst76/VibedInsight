@@ -125,6 +125,14 @@ class MockApiClient extends ApiClient {
 
   ChatAnswer? chatAnswerToReturn;
   List<Map<String, dynamic>>? chatStreamEventsToReturn;
+  ContentItem? resurfacingToReturn;
+
+  @override
+  Future<ContentItem?> getResurfacing() async {
+    methodCalls.add('getResurfacing');
+    if (shouldFail) throw Exception(failureMessage);
+    return resurfacingToReturn;
+  }
 
   @override
   Future<ChatAnswer> chat(String question, {int? topK}) async {

@@ -11,6 +11,10 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// Called with the notification payload when the user taps a notification
+  /// while the app is running. Set by main() to route via the app router.
+  void Function(String payload)? onSelectPayload;
+
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -41,8 +45,44 @@ class NotificationService {
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap - could navigate to item detail
-    // The payload contains the item ID if available
+    final payload = response.payload;
+    if (payload != null && payload.isNotEmpty) {
+      onSelectPayload?.call(payload);
+    }
+  }
+
+  /// Payload the app was launched with by tapping a notification (cold start),
+  /// or null if it wasn't launched from a notification.
+  Future<String?> launchPayload() async {
+    final details = await _notifications.getNotificationAppLaunchDetails();
+    if (details?.didNotificationLaunchApp ?? false) {
+      return details?.notificationResponse?.payload;
+    }
+    return null;
+  }
+
+  /// Show a "rediscovered" notification for an old, unread item.
+  Future<void> showResurfacing({
+    required String title,
+    required int itemId,
+  }) async {
+    await _notifications.show(
+      _generateId(),
+      'Wiederentdeckt',
+      title,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'resurfacing',
+          'Wiederentdeckt',
+          channelDescription: 'Alte, ungelesene Einträge zum Wiederentdecken',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      payload: itemId.toString(),
+    );
   }
 
   /// Show a notification that URL processing has started

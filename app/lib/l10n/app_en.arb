@@ -43,5 +43,9 @@
   "chatSources": "Sources",
   "@chatSources": {
     "description": "Label above the list of cited sources"
+  },
+  "resurfacedTitle": "Rediscovered",
+  "@resurfacedTitle": {
+    "description": "Label of the banner that resurfaces an old, unread item"
   }
 }

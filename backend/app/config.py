@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # Auto-generate the weekly summary every Sunday evening (server time)
     weekly_auto_generate: bool = True
 
+    # Serendipity resurfacing ("Wiederentdeckt"): surface an old, unread item.
+    # Older items are weighted higher; only items at least this old qualify.
+    resurfacing_enabled: bool = True
+    resurfacing_min_age_days: int = 30
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 

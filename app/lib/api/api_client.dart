@@ -186,6 +186,14 @@ class ApiClient {
     return ContentItem.fromJson(response.data);
   }
 
+  // Serendipity resurfacing — "Wiederentdeckt"
+  Future<ContentItem?> getResurfacing() async {
+    final response = await _dio.get('/resurface');
+    final item = (response.data as Map<String, dynamic>)['item'];
+    if (item == null) return null;
+    return ContentItem.fromJson(item as Map<String, dynamic>);
+  }
+
   // Chat / RAG — "Frag dein Archiv"
   Future<ChatAnswer> chat(String question, {int? topK}) async {
     final response = await _dio.post(

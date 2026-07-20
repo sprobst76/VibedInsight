@@ -10,7 +10,16 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import settings
 from app.database import init_db
-from app.routers import admin, chat, export, ingest, topics, user_items, weekly
+from app.routers import (
+    admin,
+    chat,
+    export,
+    ingest,
+    resurface,
+    topics,
+    user_items,
+    weekly,
+)
 from app.services.processing import requeue_stuck_items
 from app.services.scheduler import start_scheduler
 
@@ -21,7 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "0.5.1"
+APP_VERSION = "0.5.2"
 
 
 @asynccontextmanager
@@ -86,6 +95,7 @@ app.include_router(weekly.router, prefix="/weekly", tags=["Weekly Summary"])
 app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(export.router, prefix="/export", tags=["Export"])
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
+app.include_router(resurface.router, prefix="/resurface", tags=["Resurface"])
 
 
 @app.get("/health")

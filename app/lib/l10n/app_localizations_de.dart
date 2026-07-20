@@ -41,4 +41,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get chatSources => 'Quellen';
+
+  @override
+  String get resurfacedTitle => 'Wiederentdeckt';
 }

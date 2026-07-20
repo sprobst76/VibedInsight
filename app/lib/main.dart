@@ -15,12 +15,20 @@ import 'screens/graph_screen.dart';
 import 'services/notification_service.dart';
 import 'providers/api_provider.dart';
 import 'providers/share_intent_provider.dart';
+import 'utils/notification_routes.dart';
+
+void _handleNotificationPayload(String payload) {
+  final route = notificationRoute(payload);
+  if (route != null) appRouter.push(route);
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize notifications
-  await NotificationService().initialize();
+  // Initialize notifications + route taps through the app router
+  final notifications = NotificationService();
+  await notifications.initialize();
+  notifications.onSelectPayload = _handleNotificationPayload;
 
   // Initialize date formatting for German locale
   await initializeDateFormatting('de_DE');
@@ -39,6 +47,12 @@ void main() async {
       child: const VibedInsightApp(),
     ),
   );
+
+  // Cold start from a notification tap: navigate once the router is attached.
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final payload = await notifications.launchPayload();
+    if (payload != null) _handleNotificationPayload(payload);
+  });
 }
 
 /// The app router. Public so widget/integration tests can reset it to '/'

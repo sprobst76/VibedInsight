@@ -41,4 +41,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatSources => 'Sources';
+
+  @override
+  String get resurfacedTitle => 'Rediscovered';
 }

@@ -262,44 +262,44 @@ tr.done .tt{text-decoration:line-through}
         <div class="ptitle"><span class="pid">P3</span>Serendipity-Resurfacing + Digest-Push</div>
         <div class="pmeta">
           <span class="value" style="--vc:#dc2626">Wert: hoch</span>
-          <span class="prog">0/4 erledigt</span>
+          <span class="prog">4/4 erledigt</span>
         </div>
       </div>
       <p class="goal">Regelmäßig ein altes ungelesenes Item hochspülen und den gesetzten Notification-Payload mit einem Tap-Handler verbinden.</p>
       <div class="tablewrap"><table>
         <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
-        <tbody><tr class="">
-      <td class="c-id"><span class="st open">○</span> 3.1</td>
+        <tbody><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 3.1</td>
       <td class="c-task"><div class="tt">Resurfacing selection: weighted pick of old unread items</div>
           <div class="reason">Gewichtete SQL-Auswahl = Standard-Logik</div></td>
       <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
-      <td class="c-scope"><code>backend/app/services/resurfacing.py (neu): gewichtete Query, &#x27;zuletzt resurfaced&#x27;-Sperre</code></td>
+      <td class="c-scope"><code>backend/app/services/resurfacing.py (neu): altersgewichtete Query (random.choices)</code></td>
       <td class="c-dep">—</td>
-      <td class="c-verify">pytest: nie zweimal binnen N Tagen; nur unread; leere-DB</td>
-    </tr><tr class="">
-      <td class="c-id"><span class="st open">○</span> 3.2</td>
-      <td class="c-task"><div class="tt">Scheduler job + config flag + admin trigger endpoint</div>
-          <div class="reason">Integration nach Weekly-Digest-Muster</div></td>
+      <td class="c-verify">v0.5.2: pytest — liefert altes unread Item, null wenn disabled/nichts alt genug</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 3.2</td>
+      <td class="c-task"><div class="tt">Config-Flag + Trigger-Endpoint (kein Server-Scheduler)</div>
+          <div class="reason">Ohne Server-Push liefert ein Scheduler nichts — App triggert per Fetch</div></td>
       <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
-      <td class="c-scope"><code>scheduler.py, config.py, routers/admin.py (POST /admin/resurface)</code></td>
+      <td class="c-scope"><code>config.py (resurfacing_enabled/min_age_days), routers/resurface.py (GET /resurface)</code></td>
       <td class="c-dep">3.1</td>
-      <td class="c-verify">POST /admin/resurface liefert Item; Scheduler-Log zeigt Job</td>
-    </tr><tr class="">
-      <td class="c-id"><span class="st open">○</span> 3.3</td>
+      <td class="c-verify">v0.5.2: GET /resurface liefert Item/null (Flag-gesteuert). Bewusst KEIN Server-Scheduler — die App holt beim Start; „Push" via lokaler Notification.</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 3.3</td>
       <td class="c-task"><div class="tt">Notification tap handler (digest + resurfacing)</div>
           <div class="reason">Payload existiert; Handler + Cold-Start = Standard mit Zustands-Sorgfalt</div></td>
       <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
-      <td class="c-scope"><code>app/lib/services/notification_service.dart, main.dart (Cold/Warm-Start-Navigation)</code></td>
+      <td class="c-scope"><code>notification_service.dart (onSelectPayload + launchPayload), main.dart, utils/notification_routes.dart (neu)</code></td>
       <td class="c-dep">—</td>
-      <td class="c-verify">adb: Notification bei laufender UND gekillter App -&gt; richtiger Screen</td>
-    </tr><tr class="">
-      <td class="c-id"><span class="st open">○</span> 3.4</td>
+      <td class="c-verify">v0.5.2: Tap-Stub verdrahtet (warm via Callback, cold via launchPayload/post-frame); reiner Route-Parser unit-getestet (Item→Detail, weekly→Digest).</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 3.4</td>
       <td class="c-task"><div class="tt">App-side resurfacing surface (banner &#x27;Wiederentdeckt&#x27;)</div>
           <div class="reason">Kleines UI-Feature nach Provider-Muster</div></td>
       <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
-      <td class="c-scope"><code>app/lib/screens/inbox_screen.dart, providers/items_provider.dart, api_client.dart</code></td>
+      <td class="c-scope"><code>inbox_screen.dart (Banner), providers/resurfacing_provider.dart (neu), api_client.dart (getResurfacing)</code></td>
       <td class="c-dep">3.2, 3.3</td>
-      <td class="c-verify">Banner erscheint nach Trigger, verschwindet nach Lesen</td>
+      <td class="c-verify">v0.5.2: „Wiederentdeckt"-Banner (antippbar → Item, wegwischbar) + lokale Notification 1×/Tag. Provider unit-getestet.</td>
     </tr></tbody>
       </table></div>
       <p class="verif"><b>Verifikation Phase:</b> Admin-Trigger erzeugt Resurfacing-Notification; Tap öffnet Item; Tap auf Digest-Notification öffnet weekly_screen; Scheduler-Job feuert im Dev-Stack.</p>
