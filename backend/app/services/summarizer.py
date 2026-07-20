@@ -134,6 +134,31 @@ async def _ollama_chat_with_retry(
     raise last_error  # type: ignore[misc]
 
 
+async def ollama_chat_stream(
+    messages: list[dict],
+    options: dict | None = None,
+):
+    """Stream an Ollama chat response, yielding message-content chunks.
+
+    No retry: retrying mid-stream would duplicate already-yielded text, so a
+    failure propagates to the caller (which surfaces it as an error event).
+    """
+    client = _ollama_client()
+    stream = await client.chat(
+        model=settings.ollama_model,
+        messages=messages,
+        stream=True,
+        options=options,
+    )
+    async for part in stream:
+        try:
+            content = part["message"]["content"]
+        except (KeyError, TypeError):
+            content = ""
+        if content:
+            yield content
+
+
 def load_prompt(name: str) -> str:
     """Load a prompt template from file."""
     prompt_file = PROMPTS_DIR / f"{name}.txt"

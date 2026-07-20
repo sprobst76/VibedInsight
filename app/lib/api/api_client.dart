@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -196,6 +198,38 @@ class ApiClient {
       options: Options(receiveTimeout: const Duration(seconds: 180)),
     );
     return ChatAnswer.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Streamed chat: yields NDJSON events (`sources`, `delta`, `answer`,
+  /// `error`, `done`) as they arrive, so the UI can show sources instantly and
+  /// stream the answer token by token.
+  Stream<Map<String, dynamic>> chatStream(String question, {int? topK}) async* {
+    final response = await _dio.post<ResponseBody>(
+      '/chat/stream',
+      data: {
+        'question': question,
+        if (topK != null) 'top_k': topK,
+      },
+      options: Options(
+        responseType: ResponseType.stream,
+        receiveTimeout: const Duration(seconds: 200),
+      ),
+    );
+
+    // Buffer bytes and split on newline (0x0A) — a newline byte never occurs
+    // inside a UTF-8 multibyte sequence, so each complete line decodes cleanly.
+    final bytes = <int>[];
+    await for (final chunk in response.data!.stream) {
+      bytes.addAll(chunk);
+      int nl;
+      while ((nl = bytes.indexOf(10)) >= 0) {
+        final line = utf8.decode(bytes.sublist(0, nl)).trim();
+        bytes.removeRange(0, nl + 1);
+        if (line.isNotEmpty) yield jsonDecode(line) as Map<String, dynamic>;
+      }
+    }
+    final rest = utf8.decode(bytes).trim();
+    if (rest.isNotEmpty) yield jsonDecode(rest) as Map<String, dynamic>;
   }
 
   Future<ContentItem> ingestText({

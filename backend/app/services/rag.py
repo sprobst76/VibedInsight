@@ -10,6 +10,7 @@ the model's output), so the app can always map a [n] marker to a real item.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -19,7 +20,11 @@ from app.config import settings
 from app.models.content import ContentEmbedding, ContentItem
 from app.models.user import User, UserItem
 from app.services.embeddings import generate_embedding
-from app.services.summarizer import _ollama_chat_with_retry, load_prompt
+from app.services.summarizer import (
+    _ollama_chat_with_retry,
+    load_prompt,
+    ollama_chat_stream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +49,17 @@ class RagResult:
     answer: str
     sources: list[RagSource]
     used_context: bool
+
+
+@dataclass
+class RagContext:
+    """Retrieval result, ready to generate an answer from (no DB access left)."""
+
+    context: str
+    sources: list[RagSource]
+    used_context: bool
+    # Set when used_context is False (embedding failed or nothing retrieved).
+    fallback_answer: str | None = None
 
 
 async def _retrieve(
@@ -110,49 +126,86 @@ def _build_context(
     return "\n\n".join(blocks), sources
 
 
-async def answer_question(
+def _build_prompt(question: str, context: str) -> str:
+    return (
+        load_prompt("rag_answer")
+        .replace("{context}", context)
+        .replace("{question}", question)
+    )
+
+
+def _answer_options() -> dict | None:
+    """Cap answer length to keep generation fast on CPU-only deployments."""
+    if settings.rag_num_predict > 0:
+        return {"num_predict": settings.rag_num_predict}
+    return None
+
+
+async def prepare(
     question: str,
     db: AsyncSession,
     user: User,
     top_k: int | None = None,
-) -> RagResult:
-    """Answer a question from the user's archive via retrieval-augmented generation."""
+) -> RagContext:
+    """Do all DB-bound work: embed the question and retrieve the context.
+
+    Kept separate from generation so the streaming endpoint can finish DB access
+    before it starts streaming (the DB session must not be used mid-stream).
+    """
     question = question.strip()
     top_k = top_k or settings.rag_top_k
 
     question_embedding = await generate_embedding(question)
     if question_embedding is None:
         logger.warning("RAG: embedding the question failed; cannot retrieve")
-        return RagResult(
-            answer=(
+        return RagContext(
+            context="",
+            sources=[],
+            used_context=False,
+            fallback_answer=(
                 "Die Frage konnte gerade nicht verarbeitet werden. "
                 "Bitte später erneut versuchen."
             ),
-            sources=[],
-            used_context=False,
         )
 
     retrieved = await _retrieve(
         question_embedding, db, user.id, top_k, settings.rag_min_similarity
     )
     if not retrieved:
-        return RagResult(answer=NO_CONTEXT_ANSWER, sources=[], used_context=False)
+        return RagContext(
+            context="", sources=[], used_context=False, fallback_answer=NO_CONTEXT_ANSWER
+        )
 
     context, sources = _build_context(retrieved, settings.rag_context_char_budget)
+    return RagContext(context=context, sources=sources, used_context=True)
 
-    prompt = (
-        load_prompt("rag_answer")
-        .replace("{context}", context)
-        .replace("{question}", question)
-    )
-    # Cap answer length to keep generation fast on CPU-only deployments.
-    options = (
-        {"num_predict": settings.rag_num_predict}
-        if settings.rag_num_predict > 0
-        else None
-    )
+
+async def stream_answer(question: str, context: str) -> AsyncIterator[str]:
+    """Stream the answer tokens for a prepared context (no DB access)."""
+    prompt = _build_prompt(question, context)
+    async for delta in ollama_chat_stream(
+        [{"role": "user", "content": prompt}], options=_answer_options()
+    ):
+        yield delta
+
+
+async def answer_question(
+    question: str,
+    db: AsyncSession,
+    user: User,
+    top_k: int | None = None,
+) -> RagResult:
+    """Non-streaming answer (kept for the plain /chat endpoint)."""
+    prep = await prepare(question, db, user, top_k)
+    if not prep.used_context:
+        return RagResult(
+            answer=prep.fallback_answer or NO_CONTEXT_ANSWER,
+            sources=[],
+            used_context=False,
+        )
+
     answer = await _ollama_chat_with_retry(
-        [{"role": "user", "content": prompt}], options=options
+        [{"role": "user", "content": _build_prompt(question, prep.context)}],
+        options=_answer_options(),
     )
-
-    return RagResult(answer=answer.strip(), sources=sources, used_context=True)
+    return RagResult(answer=answer.strip(), sources=prep.sources, used_context=True)

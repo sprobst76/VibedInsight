@@ -1,7 +1,7 @@
 name: vibedinsight
 description: "Personal knowledge platform - collect, analyze, summarize"
 publish_to: 'none'
-version: 0.5.0+20
+version: 0.5.1+21
 
 environment:
   sdk: ^3.10.4

@@ -38,7 +38,45 @@ void main() {
     expect(state.messages[0].text, 'Wie funktioniert async?');
     expect(state.messages[1].isUser, false);
     expect(state.messages[1].sources.single.id, '8');
-    expect(mockApi.methodCalls, contains('chat'));
+    expect(state.messages[1].isStreaming, false);
+    expect(mockApi.methodCalls, contains('chatStream'));
+  });
+
+  test('streamed deltas accumulate into the answer text', () async {
+    mockApi.chatStreamEventsToReturn = [
+      {
+        'type': 'sources',
+        'used_context': true,
+        'sources': [
+          {'n': 1, 'id': '5', 'title': 'Quelle', 'similarity': 0.8},
+        ],
+      },
+      {'type': 'delta', 'text': 'Hallo '},
+      {'type': 'delta', 'text': 'Welt'},
+      {'type': 'done'},
+    ];
+    final container = makeContainer();
+
+    await container.read(chatProvider.notifier).send('Frage');
+
+    final msg = container.read(chatProvider).messages.last;
+    expect(msg.isUser, false);
+    expect(msg.text, 'Hallo Welt');
+    expect(msg.sources.single.id, '5');
+    expect(msg.isStreaming, false);
+  });
+
+  test('a stream error event marks the message as an error', () async {
+    mockApi.chatStreamEventsToReturn = [
+      {'type': 'error', 'message': 'boom'},
+    ];
+    final container = makeContainer();
+
+    await container.read(chatProvider.notifier).send('Frage');
+
+    final msg = container.read(chatProvider).messages.last;
+    expect(msg.isError, true);
+    expect(msg.isStreaming, false);
   });
 
   test('a failed request yields an error assistant message', () async {
@@ -58,7 +96,7 @@ void main() {
     final container = makeContainer();
     await container.read(chatProvider.notifier).send('   ');
     expect(container.read(chatProvider).messages, isEmpty);
-    expect(mockApi.methodCalls, isNot(contains('chat')));
+    expect(mockApi.methodCalls, isNot(contains('chatStream')));
   });
 
   test('clear resets the conversation', () async {

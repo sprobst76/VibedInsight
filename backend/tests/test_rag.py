@@ -6,6 +6,7 @@ exercise retrieval, context building, the no-context path and the /chat route,
 not the LLM itself.
 """
 
+import json
 import uuid
 
 import pytest
@@ -181,6 +182,62 @@ async def test_chat_endpoint_answers_from_seeded_item(client, monkeypatch):
 async def test_chat_endpoint_rejects_empty_question(client):
     response = await client.post("/chat", json={"question": "   "})
     assert response.status_code == 422
+
+
+async def test_chat_stream_emits_sources_then_deltas(client, monkeypatch):
+    async with async_session_maker() as db:
+        owner = await get_or_create_owner(db)
+        item = ContentItem(
+            title="Streaming Article",
+            summary="Ein Artikel zum Streamen.",
+            source="example.com",
+            status=ProcessingStatus.COMPLETED,
+        )
+        db.add(item)
+        await db.flush()
+        db.add(
+            ContentEmbedding(
+                content_id=item.id, embedding=_vec(), model="mxbai-embed-large"
+            )
+        )
+        db.add(UserItem(user_id=owner.id, content_id=item.id))
+        await db.commit()
+
+    monkeypatch.setattr(rag, "generate_embedding", lambda text: _fake_async(_vec()))
+
+    async def _fake_stream(question, context):
+        for tok in ["Hallo ", "Welt"]:
+            yield tok
+
+    monkeypatch.setattr(rag, "stream_answer", _fake_stream)
+
+    response = await client.post("/chat/stream", json={"question": "test"})
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in response.text.splitlines() if line.strip()]
+    assert lines[0]["type"] == "sources"
+    assert lines[0]["used_context"] is True
+    assert len(lines[0]["sources"]) >= 1
+    deltas = [line["text"] for line in lines if line["type"] == "delta"]
+    assert "".join(deltas) == "Hallo Welt"
+    assert lines[-1]["type"] == "done"
+
+
+async def test_chat_stream_without_hits_emits_answer_event(client, monkeypatch):
+    monkeypatch.setattr(rag, "generate_embedding", lambda text: _fake_async(_vec()))
+
+    async def _no_hits(*args, **kwargs):
+        return []
+
+    monkeypatch.setattr(rag, "_retrieve", _no_hits)
+
+    response = await client.post("/chat/stream", json={"question": "nichts dazu"})
+
+    assert response.status_code == 200
+    lines = [json.loads(line) for line in response.text.splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert lines[0]["type"] == "answer"
+    assert lines[0]["used_context"] is False
 
 
 def _fake_async(value):

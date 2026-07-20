@@ -5,6 +5,22 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-20
+
+### Added — RAG-Streaming
+- **`POST /chat/stream`**: NDJSON-Event-Stream (`sources` → `delta`* → `done`,
+  bzw. `answer` im Kein-Kontext-Fall, `error` bei Fehlern). Das Retrieval
+  (DB-gebunden) läuft vor dem Stream, gestreamt wird nur die Ollama-Generierung
+  (`ollama_chat_stream`) — die DB-Session wird nie mitten im Stream benutzt.
+- **App streamt die Antwort**: Quellen-Chips erscheinen sofort (~5s), die
+  Antwort läuft Token für Token ein statt eingefrorenem Warten. `ApiClient
+  .chatStream` (byte-basiertes NDJSON-Parsing), Provider aktualisiert die
+  Assistant-Bubble inkrementell. Backend- + Provider-Tests.
+
+_Hinweis: Auf CPU-Servern dominiert die Prompt-Evaluation die Zeit bis zum
+ersten Token; Streaming verbessert v.a. die gefühlte Latenz (Quellen sofort,
+sichtbarer Fortschritt)._
+
 ## [0.5.0] - 2026-07-20
 
 ### Added — RAG-Chat „Frag dein Archiv" (P2)

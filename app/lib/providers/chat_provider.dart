@@ -12,12 +12,31 @@ class ChatMessage {
     required this.text,
     this.sources = const [],
     this.isError = false,
+    this.isStreaming = false,
   });
 
   final bool isUser;
   final String text;
   final List<ChatSource> sources;
   final bool isError;
+
+  /// True while the assistant answer is still streaming in.
+  final bool isStreaming;
+
+  ChatMessage copyWith({
+    String? text,
+    List<ChatSource>? sources,
+    bool? isError,
+    bool? isStreaming,
+  }) {
+    return ChatMessage(
+      isUser: isUser,
+      text: text ?? this.text,
+      sources: sources ?? this.sources,
+      isError: isError ?? this.isError,
+      isStreaming: isStreaming ?? this.isStreaming,
+    );
+  }
 }
 
 class ChatState {
@@ -43,37 +62,67 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final trimmed = question.trim();
     if (trimmed.isEmpty || state.isSending) return;
 
+    // Append the question and an empty, streaming assistant placeholder.
     state = state.copyWith(
-      messages: [...state.messages, ChatMessage(isUser: true, text: trimmed)],
+      messages: [
+        ...state.messages,
+        ChatMessage(isUser: true, text: trimmed),
+        const ChatMessage(isUser: false, text: '', isStreaming: true),
+      ],
       isSending: true,
     );
 
+    final buffer = StringBuffer();
     try {
-      final answer = await _api.chat(trimmed);
-      state = state.copyWith(
-        messages: [
-          ...state.messages,
-          ChatMessage(
-            isUser: false,
-            text: answer.answer,
-            sources: answer.sources,
-          ),
-        ],
-        isSending: false,
-      );
+      await for (final event in _api.chatStream(trimmed)) {
+        switch (event['type']) {
+          case 'sources':
+            _updateAssistant(sources: _parseSources(event['sources']));
+          case 'answer': // no-context path: a single complete answer
+            buffer.write(event['answer'] ?? '');
+            _updateAssistant(text: buffer.toString());
+          case 'delta':
+            buffer.write(event['text'] ?? '');
+            _updateAssistant(text: buffer.toString());
+          case 'error':
+            _updateAssistant(
+              text: describeError('${event['message']}').message,
+              isError: true,
+            );
+        }
+      }
     } catch (e) {
-      state = state.copyWith(
-        messages: [
-          ...state.messages,
-          ChatMessage(
-            isUser: false,
-            text: describeError(e.toString()).message,
-            isError: true,
-          ),
-        ],
-        isSending: false,
-      );
+      _updateAssistant(text: describeError(e.toString()).message, isError: true);
+    } finally {
+      _updateAssistant(isStreaming: false);
+      state = state.copyWith(isSending: false);
     }
+  }
+
+  /// Replace the last (assistant) message with an updated copy.
+  void _updateAssistant({
+    String? text,
+    List<ChatSource>? sources,
+    bool? isError,
+    bool? isStreaming,
+  }) {
+    if (state.messages.isEmpty) return;
+    final messages = [...state.messages];
+    messages[messages.length - 1] = messages.last.copyWith(
+      text: text,
+      sources: sources,
+      isError: isError,
+      isStreaming: isStreaming,
+    );
+    state = state.copyWith(messages: messages);
+  }
+
+  List<ChatSource> _parseSources(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(ChatSource.fromJson)
+        .toList();
   }
 
   void clear() => state = const ChatState();

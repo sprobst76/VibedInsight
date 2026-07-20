@@ -124,6 +124,7 @@ class MockApiClient extends ApiClient {
   }
 
   ChatAnswer? chatAnswerToReturn;
+  List<Map<String, dynamic>>? chatStreamEventsToReturn;
 
   @override
   Future<ChatAnswer> chat(String question, {int? topK}) async {
@@ -134,6 +135,50 @@ class MockApiClient extends ApiClient {
 
     return chatAnswerToReturn ??
         const ChatAnswer(answer: 'Antwort', sources: [], usedContext: true);
+  }
+
+  @override
+  Stream<Map<String, dynamic>> chatStream(String question, {int? topK}) async* {
+    methodCalls.add('chatStream');
+    lastCallParams['question'] = question;
+
+    if (shouldFail) throw Exception(failureMessage);
+
+    if (chatStreamEventsToReturn != null) {
+      for (final event in chatStreamEventsToReturn!) {
+        yield event;
+      }
+      return;
+    }
+
+    // Derive a stream from chatAnswerToReturn: sources -> delta -> done.
+    final answer = chatAnswerToReturn ??
+        const ChatAnswer(answer: 'Antwort', sources: [], usedContext: true);
+    if (answer.usedContext) {
+      yield {
+        'type': 'sources',
+        'used_context': true,
+        'sources': answer.sources
+            .map((s) => {
+                  'n': s.n,
+                  'id': s.id,
+                  'title': s.title,
+                  'url': s.url,
+                  'source': s.source,
+                  'similarity': s.similarity,
+                })
+            .toList(),
+      };
+      yield {'type': 'delta', 'text': answer.answer};
+      yield {'type': 'done'};
+    } else {
+      yield {
+        'type': 'answer',
+        'answer': answer.answer,
+        'sources': const [],
+        'used_context': false,
+      };
+    }
   }
 
   @override

@@ -52,8 +52,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Keep the view pinned to the latest message as answers stream in.
     _scrollToBottomSoon();
 
-    final itemCount = state.messages.length + (state.isSending ? 1 : 0);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.chatTitle),
@@ -74,16 +72,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    itemCount: itemCount,
-                    itemBuilder: (context, index) {
-                      if (index >= state.messages.length) {
-                        return const _TypingBubble();
-                      }
-                      return _MessageBubble(
-                        message: state.messages[index],
-                        sourcesLabel: l10n.chatSources,
-                      );
-                    },
+                    itemCount: state.messages.length,
+                    itemBuilder: (context, index) => _MessageBubble(
+                      message: state.messages[index],
+                      sourcesLabel: l10n.chatSources,
+                    ),
                   ),
           ),
           _InputBar(
@@ -175,10 +168,20 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SelectableText(
-              message.text,
-              style: TextStyle(color: fg, height: 1.35),
-            ),
+            if (message.isStreaming && message.text.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+                ),
+              )
+            else
+              SelectableText(
+                message.text,
+                style: TextStyle(color: fg, height: 1.35),
+              ),
             if (message.sources.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
@@ -229,30 +232,6 @@ class _SourceChip extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       onPressed: () => context.push('/item/${source.id}'),
-    );
-  }
-}
-
-class _TypingBubble extends StatelessWidget {
-  const _TypingBubble();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(left: 12, right: 48, top: 8, bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
     );
   }
 }
