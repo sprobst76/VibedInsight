@@ -289,3 +289,15 @@ async def process_now(
     """Run the processing pipeline for one item synchronously (debugging aid)."""
     await process_item(content_id)
     return {"message": f"Processed {content_id}"}
+
+
+@router.post("/retriage")
+async def retriage(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Recompute triage scores for all of the user's items (backfill)."""
+    from app.services.triage import retriage_user
+
+    count = await retriage_user(db, user)
+    return {"message": f"Retriaged {count} items", "count": count}

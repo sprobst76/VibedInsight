@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     resurfacing_enabled: bool = True
     resurfacing_min_age_days: int = 30
 
+    # KI-Triage: score new items by similarity to the user's highly-rated items
+    # (rating >= triage_min_rating). Used to pre-sort the inbox.
+    triage_min_rating: int = 4
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 

@@ -1,7 +1,8 @@
 enum SortField {
   date,
   title,
-  status;
+  status,
+  triage;
 
   String get displayName {
     switch (this) {
@@ -11,6 +12,8 @@ enum SortField {
         return 'Title';
       case SortField.status:
         return 'Status';
+      case SortField.triage:
+        return 'Für dich';
     }
   }
 }
@@ -98,6 +101,9 @@ class ContentItem {
   final bool isRead;
   final bool isArchived;
   final int rating;
+
+  /// KI-Triage: similarity to the user's highly-rated items (0..1), or null.
+  final double? triageScore;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? processedAt;
@@ -116,6 +122,7 @@ class ContentItem {
     this.isRead = false,
     this.isArchived = false,
     this.rating = 0,
+    this.triageScore,
     required this.createdAt,
     this.updatedAt,
     this.processedAt,
@@ -136,6 +143,7 @@ class ContentItem {
       isRead: json['is_read'] as bool? ?? false,
       isArchived: json['is_archived'] as bool? ?? false,
       rating: json['rating'] as int? ?? 0,
+      triageScore: (json['triage_score'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
@@ -164,6 +172,7 @@ class ContentItem {
       isRead: isRead ?? this.isRead,
       isArchived: isArchived ?? this.isArchived,
       rating: rating ?? this.rating,
+      triageScore: triageScore,
       createdAt: createdAt,
       updatedAt: updatedAt,
       processedAt: processedAt,
@@ -253,6 +262,7 @@ class ContentItemWithRelations extends ContentItem {
     super.isRead,
     super.isArchived,
     super.rating,
+    super.triageScore,
     required super.createdAt,
     super.updatedAt,
     super.processedAt,
@@ -274,6 +284,7 @@ class ContentItemWithRelations extends ContentItem {
       isRead: json['is_read'] as bool? ?? false,
       isArchived: json['is_archived'] as bool? ?? false,
       rating: json['rating'] as int? ?? 0,
+      triageScore: (json['triage_score'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)

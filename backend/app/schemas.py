@@ -112,6 +112,7 @@ class UserItemResponse(BaseModel):
     is_read: bool
     is_archived: bool
     rating: int = 0
+    triage_score: float | None = None
     created_at: datetime
     updated_at: datetime | None
     processed_at: datetime | None

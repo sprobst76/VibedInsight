@@ -83,6 +83,14 @@ class ItemCard extends StatelessWidget {
                     ),
                   ),
                   if (!isSelectionMode) ...[
+                    if (item.triageScore != null && item.triageScore! >= 0.6) ...[
+                      Tooltip(
+                        message: 'Passt zu deinen Favoriten',
+                        child: Icon(Icons.bolt,
+                            size: 18, color: Colors.deepOrange.shade400),
+                      ),
+                      const SizedBox(width: 2),
+                    ],
                     _buildStatusIndicator(),
                     // IconButtons (not bare GestureDetectors) give a 44dp+ touch
                     // target and a screen-reader label via `tooltip`.

@@ -51,6 +51,7 @@ def _build_user_item_response(user_item: UserItem) -> UserItemResponse:
         is_read=user_item.is_read,
         is_archived=user_item.is_archived,
         rating=user_item.rating,
+        triage_score=user_item.triage_score,
         created_at=user_item.created_at,
         updated_at=user_item.updated_at,
         processed_at=content.processed_at,
@@ -141,7 +142,7 @@ async def list_items(
     favorites_only: bool = Query(False, description="Only show favorites"),
     unread_only: bool = Query(False, description="Only show unread items"),
     archived_only: bool = Query(False, description="Only show archived items"),
-    sort_by: str = Query("date", pattern="^(date|title|status)$"),
+    sort_by: str = Query("date", pattern="^(date|title|status|triage)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -186,10 +187,16 @@ async def list_items(
         order_col = UserItem.created_at
     elif sort_by == "title":
         order_col = ContentItem.title
+    elif sort_by == "triage":
+        order_col = UserItem.triage_score
     else:
         order_col = ContentItem.status
 
-    query = query.order_by(order_col.desc() if sort_order == "desc" else order_col.asc())
+    ordered = order_col.desc() if sort_order == "desc" else order_col.asc()
+    # Keep unscored items at the bottom when sorting by triage.
+    if sort_by == "triage":
+        ordered = ordered.nullslast()
+    query = query.order_by(ordered)
 
     offset = (page - 1) * page_size
     query = query.offset(offset).limit(page_size)

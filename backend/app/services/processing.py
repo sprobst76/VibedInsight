@@ -220,6 +220,14 @@ async def _embed_and_relate(item: ContentItem, db: AsyncSession) -> None:
         logger.warning(f"Item {item.id}: relation calculation failed (non-fatal): {e}")
         await db.rollback()
 
+    try:
+        from app.services.triage import update_triage_for_content
+
+        await update_triage_for_content(db, item.id)
+    except Exception as e:
+        logger.warning(f"Item {item.id}: triage scoring failed (non-fatal): {e}")
+        await db.rollback()
+
 
 async def update_embedding(item: ContentItem, db: AsyncSession) -> bool:
     """Generate and store/update the embedding for an item."""

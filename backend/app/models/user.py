@@ -14,7 +14,15 @@ import uuid as uuid_module
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -58,6 +66,9 @@ class UserItem(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     rating: Mapped[int] = mapped_column(Integer, default=0)  # 0=unrated, 1-5=stars
+    # KI-Triage: max cosine similarity to the user's highly-rated items (0..1),
+    # set at ingest and by /admin/retriage. Null until scored.
+    triage_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

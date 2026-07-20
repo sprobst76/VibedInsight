@@ -162,6 +162,9 @@ class AppDatabase extends _$AppDatabase {
               ? OrderingTerm.desc(t.status)
               : OrderingTerm.asc(t.status)
         ]);
+      case SortField.triage:
+        // The offline cache has no triage score; fall back to newest-first.
+        query = query..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
     }
 
     // Pagination

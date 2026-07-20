@@ -5,6 +5,21 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-07-20
+
+### Added — KI-Triage der Inbox (P4)
+- **triage_score** (neue Spalte `user_items.triage_score`, Migration 008): beim
+  Ingest bekommt jedes Item einen Score = max. Cosine-Similarity seines
+  Embeddings zu den **hoch-bewerteten** Items des Nutzers (Rating ≥
+  `triage_min_rating`, Default 4). „Ähnelt etwas, das dir gefallen hat."
+- **`POST /admin/retriage`**: rechnet alle Scores neu (Backfill, nach
+  Rating-Änderungen). Sort `?sort_by=triage` (nulls last) sortiert die Inbox
+  nach Relevanz.
+- **App**: Sort-Option „Für dich" (Triage) + Blitz-Indikator auf Karten mit
+  hohem Score (≥ 0.6). Backend-Tests (ähnlich → hoch, unähnlich → niedrig).
+
+_Aktiv, sobald der Nutzer Items mit 4–5 Sternen bewertet (Trainingssignal)._
+
 ## [0.5.2] - 2026-07-20
 
 ### Added — Serendipity-Resurfacing „Wiederentdeckt" (P3)
