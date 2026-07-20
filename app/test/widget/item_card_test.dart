@@ -62,6 +62,43 @@ void main() {
       expect(sourceText.overflow, TextOverflow.ellipsis);
     });
 
+    testWidgets('read and favorite controls expose accessible tooltips',
+        (tester) async {
+      await pumpAndSettle(
+        tester,
+        ItemCard(
+          item: TestItems.completedItem, // not read, not favorite
+          onTap: () {},
+          onToggleRead: () {},
+          onToggleFavorite: () {},
+        ),
+      );
+
+      // Tooltip == screen-reader label; renaming/removing it fails this.
+      expect(find.byTooltip('Als gelesen markieren'), findsOneWidget);
+      expect(find.byTooltip('Als Favorit markieren'), findsOneWidget);
+      // 44dp+ touch targets via IconButton.
+      expect(find.byType(IconButton), findsNWidgets(2));
+    });
+
+    testWidgets('rating stars expose semantic labels', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpAndSettle(
+        tester,
+        ItemCard(
+          item: TestItems.completedItem,
+          onTap: () {},
+          onSetRating: (_) {},
+        ),
+      );
+
+      expect(
+        find.bySemanticsLabel('Mit 3 von 5 Sternen bewerten'),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
     testWidgets('shows favorite icon when item is favorite', (tester) async {
       await pumpAndSettle(
         tester,

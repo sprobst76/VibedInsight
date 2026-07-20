@@ -84,28 +84,48 @@ class ItemCard extends StatelessWidget {
                   ),
                   if (!isSelectionMode) ...[
                     _buildStatusIndicator(),
-                    if (onToggleRead != null) ...[
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: onToggleRead,
-                        child: Icon(
-                          item.isRead ? Icons.mark_email_read : Icons.mark_email_unread,
-                          color: item.isRead ? Colors.grey : Theme.of(context).colorScheme.primary,
-                          size: 22,
+                    // IconButtons (not bare GestureDetectors) give a 44dp+ touch
+                    // target and a screen-reader label via `tooltip`.
+                    if (onToggleRead != null)
+                      IconButton(
+                        onPressed: onToggleRead,
+                        tooltip: item.isRead
+                            ? 'Als ungelesen markieren'
+                            : 'Als gelesen markieren',
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        iconSize: 22,
+                        color: item.isRead
+                            ? Colors.grey
+                            : Theme.of(context).colorScheme.primary,
+                        icon: Icon(
+                          item.isRead
+                              ? Icons.mark_email_read
+                              : Icons.mark_email_unread,
                         ),
                       ),
-                    ],
-                    if (onToggleFavorite != null) ...[
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: onToggleFavorite,
-                        child: Icon(
+                    if (onToggleFavorite != null)
+                      IconButton(
+                        onPressed: onToggleFavorite,
+                        tooltip: item.isFavorite
+                            ? 'Favorit entfernen'
+                            : 'Als Favorit markieren',
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        iconSize: 24,
+                        color: item.isFavorite ? Colors.amber : Colors.grey,
+                        icon: Icon(
                           item.isFavorite ? Icons.star : Icons.star_border,
-                          color: item.isFavorite ? Colors.amber : Colors.grey,
-                          size: 24,
                         ),
                       ),
-                    ],
                   ],
                 ],
               ),
@@ -168,16 +188,22 @@ class ItemCard extends StatelessWidget {
                 Row(
                   children: List.generate(5, (index) {
                     final starValue = index + 1;
-                    return GestureDetector(
-                      onTap: () => onSetRating!(item.rating == starValue ? 0 : starValue),
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 2),
-                        child: Icon(
-                          starValue <= item.rating ? Icons.star : Icons.star_border,
-                          size: 18,
-                          color: starValue <= item.rating
-                              ? Colors.amber
-                              : Theme.of(context).colorScheme.outlineVariant,
+                    return Semantics(
+                      button: true,
+                      selected: starValue <= item.rating,
+                      label: 'Mit $starValue von 5 Sternen bewerten',
+                      child: GestureDetector(
+                        onTap: () =>
+                            onSetRating!(item.rating == starValue ? 0 : starValue),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(
+                            starValue <= item.rating ? Icons.star : Icons.star_border,
+                            size: 18,
+                            color: starValue <= item.rating
+                                ? Colors.amber
+                                : Theme.of(context).colorScheme.outlineVariant,
+                          ),
                         ),
                       ),
                     );

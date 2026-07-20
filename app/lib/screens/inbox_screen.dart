@@ -242,6 +242,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       actions: [
         IconButton(
           icon: Icon(_isSearching ? Icons.close : Icons.search),
+          tooltip: _isSearching ? 'Suche schließen' : 'Suche',
           onPressed: _toggleSearch,
         ),
         _buildSortButton(),
