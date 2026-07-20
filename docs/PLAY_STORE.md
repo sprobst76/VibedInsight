@@ -62,12 +62,14 @@ Play Console → **Testen → Internal Testing → Neuen Release erstellen**
 danach API-Key in den Einstellungen neu eintragen.
 
 ### 5. Danach: Auto-Updates aktivieren
-1. Google Cloud Console → Service-Account anlegen, JSON-Key laden.
-2. Play Console → **Nutzer & Berechtigungen** → Service-Account einladen, Rolle
-   „Releases in Test-Tracks verwalten".
-3. GitHub-Secret setzen: `gh secret set PLAY_SERVICE_ACCOUNT_JSON < service-account.json`
-   (oder ich mache es, wenn du mir die JSON gibst).
-4. Ab dann: **`git tag v0.4.4 && git push origin v0.4.4`** → CI lädt automatisch
+1. ✅ **Service-Account = erledigt.** Kein neuer nötig — der vorhandene
+   `github-play-deploy@noted-app-483813-u5.iam.gserviceaccount.com` (deployt auch
+   ZenMail/Hush/VibedTracker) wird wiederverwendet; das GitHub-Secret
+   `PLAY_SERVICE_ACCOUNT_JSON` ist im VibedInsight-Repo bereits gesetzt.
+2. Play Console → **Nutzer & Berechtigungen** → prüfen, dass dieser Service-Account
+   Zugriff auf VibedInsight hat (kontoweit → automatisch; sonst app-spezifisch Rolle
+   „Releases in Test-Tracks verwalten" ergänzen).
+3. Ab dann: **`git tag v0.4.4 && git push origin v0.4.4`** → CI lädt automatisch
    in Internal Testing. (Der allererste Upload MUSS manuell sein — Google-Regel.)
 
 ---
