@@ -202,11 +202,12 @@ Priorisiert nach Wert/Aufwand — Grundlage: pgvector + Embeddings sind jetzt im
 
 1. **"Frag dein Archiv" (RAG-Chat)** — ✅ v0.5.0 (P2): `POST /chat` +
    Chat-Screen mit Quellen-Chips, end-to-end gegen prod verifiziert.
-   - [ ] **Prod-Latenz-Tuning**: qwen2.5:3b auf dem VPS (CPU, swappt) braucht
-     ~40–200s pro Antwort. Optionen: `rag_context_char_budget`/`rag_top_k`
-     senken, Streaming-Antwort, oder ein schnelleres/quantisiertes Modell.
-   - [ ] Inline-`[n]`-Zitate erzwingen (kleines Modell setzt sie unzuverlässig);
-     Chat-Verlauf optional persistieren; Chip-Strings (Quellen) i18n-Restarbeit.
+   - [x] **Streaming** (v0.5.1): `/chat/stream` + streamende Chat-UI — Quellen
+     erscheinen ~1–8s (sofort antippbar), Antwort läuft Token für Token ein.
+   - [ ] **Prod-TTFT bleibt hardware-limitiert**: auf dem CPU-VPS dominiert die
+     Prompt-Evaluation (~80s bis zum ersten Token bei qwen2.5:3b). Echte Hebel:
+     kleineres/quantisiertes Modell, kürzeres `rag_context_char_budget`, oder GPU.
+   - [ ] Chat-Verlauf optional persistieren; Chip-Strings (Quellen) i18n-Restarbeit.
 2. **Serendipity-Resurfacing** — täglich/wöchentlich ein altes ungelesenes
    Item hochspülen ("Vor 3 Monaten gespeichert — noch relevant?").
 3. **KI-Triage** — neue Items gegen bisherige Hoch-Ratings einschätzen und
