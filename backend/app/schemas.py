@@ -21,6 +21,27 @@ class TopicResponse(TopicBase):
     model_config = {"from_attributes": True}
 
 
+# Chat / RAG schemas
+class ChatRequest(BaseModel):
+    question: str
+    top_k: int | None = None
+
+
+class ChatSource(BaseModel):
+    n: int
+    id: str
+    title: str
+    url: str | None = None
+    source: str | None = None
+    similarity: float
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[ChatSource]
+    used_context: bool
+
+
 # Ingest schemas
 class IngestURLRequest(BaseModel):
     url: HttpUrl

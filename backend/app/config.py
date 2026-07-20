@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     # Semantic similarity: minimum cosine similarity for a SIMILAR relation
     similarity_threshold: float = 0.75
 
+    # RAG chat ("Frag dein Archiv"): retrieval + context budget.
+    # rag_min_similarity is deliberately lower than similarity_threshold — a
+    # short question rarely matches a document as strongly as two documents
+    # match each other, so a lenient floor keeps recall useful.
+    rag_top_k: int = 5
+    rag_min_similarity: float = 0.2
+    rag_context_char_budget: int = 6000
+
     # Auto-generate the weekly summary every Sunday evening (server time)
     weekly_auto_generate: bool = True
 
