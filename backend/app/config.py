@@ -33,9 +33,13 @@ class Settings(BaseSettings):
     # rag_min_similarity is deliberately lower than similarity_threshold — a
     # short question rarely matches a document as strongly as two documents
     # match each other, so a lenient floor keeps recall useful.
-    rag_top_k: int = 5
+    #
+    # Budgets are tuned for a CPU-only VPS: shorter prompts and a capped answer
+    # length (rag_num_predict) keep latency reasonable with small models.
+    rag_top_k: int = 4
     rag_min_similarity: float = 0.2
-    rag_context_char_budget: int = 6000
+    rag_context_char_budget: int = 3000
+    rag_num_predict: int = 400  # max answer tokens (Ollama num_predict); 0 = model default
 
     # Auto-generate the weekly summary every Sunday evening (server time)
     weekly_auto_generate: bool = True

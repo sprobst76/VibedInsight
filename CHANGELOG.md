@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deterministisch aus dem Retrieval abgeleitet (nicht aus der Modellausgabe)
   und sind user-scoped — die Quellen-`id` ist die `UserItem.id`, sodass die App
   direkt zum Item springen kann. Kein-Kontext-Fall antwortet klar und ruft das
-  LLM nicht auf. Config: `rag_top_k=5`, `rag_min_similarity=0.2`, Kontext-Budget
-  6000 Zeichen. Backend-Tests + End-to-End gegen prod verifiziert.
+  LLM nicht auf. Für CPU-only-Deployments latenz-getunt: `rag_top_k=4`,
+  Kontext-Budget 3000 Zeichen, Antwortlänge via Ollama `num_predict=400`
+  gecappt (`rag_min_similarity=0.2`). Backend-Tests + End-to-End gegen prod
+  verifiziert.
 - **Chat-Screen in der App** („Frag dein Archiv", Icon in der Inbox-AppBar):
   Konversations-UI mit Frage-/Antwort-Bubbles, Typing-Indikator, Fehler-Bubble
   und antippbaren Quellen-Chips `[n] Titel` → öffnen das jeweilige Item.

@@ -145,6 +145,14 @@ async def answer_question(
         .replace("{context}", context)
         .replace("{question}", question)
     )
-    answer = await _ollama_chat_with_retry([{"role": "user", "content": prompt}])
+    # Cap answer length to keep generation fast on CPU-only deployments.
+    options = (
+        {"num_predict": settings.rag_num_predict}
+        if settings.rag_num_predict > 0
+        else None
+    )
+    answer = await _ollama_chat_with_retry(
+        [{"role": "user", "content": prompt}], options=options
+    )
 
     return RagResult(answer=answer.strip(), sources=sources, used_context=True)

@@ -104,6 +104,7 @@ async def _ollama_chat_with_retry(
     messages: list[dict],
     format: dict | None = None,
     timeout: float = OLLAMA_TIMEOUT,
+    options: dict | None = None,
 ) -> str:
     """Call Ollama chat with automatic retry on failure; returns message content."""
     client = _ollama_client()
@@ -111,7 +112,12 @@ async def _ollama_chat_with_retry(
     for attempt in range(MAX_RETRIES + 1):
         try:
             response = await asyncio.wait_for(
-                client.chat(model=settings.ollama_model, messages=messages, format=format),
+                client.chat(
+                    model=settings.ollama_model,
+                    messages=messages,
+                    format=format,
+                    options=options,
+                ),
                 timeout=timeout,
             )
             return response["message"]["content"]
