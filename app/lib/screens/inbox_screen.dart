@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/content_item.dart';
 import '../providers/api_provider.dart';
 import '../providers/items_provider.dart';
@@ -238,7 +239,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               ),
               onChanged: _onSearchChanged,
             )
-          : const Text('Inbox'),
+          : Text(AppLocalizations.of(context).inboxTitle),
       actions: [
         IconButton(
           icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -496,7 +497,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           : FloatingActionButton.extended(
               onPressed: _showAddOptions,
               icon: const Icon(Icons.add),
-              label: const Text('Add'),
+              label: Text(AppLocalizations.of(context).add),
             ),
     );
   }
@@ -628,6 +629,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   }
 
   Widget _buildContent(ItemsState state) {
+    final l10n = AppLocalizations.of(context);
     if (state.isLoading && state.items.isEmpty) {
       return const SkeletonList();
     }
@@ -654,14 +656,14 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             onPressed: () =>
                 ref.read(itemsProvider.notifier).loadItems(refresh: true),
             icon: const Icon(Icons.refresh),
-            label: const Text('Erneut versuchen'),
+            label: Text(l10n.retry),
           ),
           if (info.isAuthError) ...[
             const SizedBox(height: 12),
             TextButton.icon(
               onPressed: () => context.push('/settings'),
               icon: const Icon(Icons.settings),
-              label: const Text('Einstellungen öffnen'),
+              label: Text(l10n.openSettings),
             ),
           ],
         ],
@@ -680,12 +682,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No items yet',
+              l10n.emptyInboxTitle,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your first URL to get started',
+              l10n.emptyInboxSubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
                   ),

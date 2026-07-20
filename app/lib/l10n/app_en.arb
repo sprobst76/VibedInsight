@@ -1,0 +1,31 @@
+{
+  "@@locale": "en",
+  "appTitle": "VibedInsight",
+  "@appTitle": {
+    "description": "Application name shown as the window/app title"
+  },
+  "inboxTitle": "Inbox",
+  "@inboxTitle": {
+    "description": "Title of the main inbox screen"
+  },
+  "emptyInboxTitle": "No items yet",
+  "@emptyInboxTitle": {
+    "description": "Headline of the empty-inbox state"
+  },
+  "emptyInboxSubtitle": "Add your first URL to get started",
+  "@emptyInboxSubtitle": {
+    "description": "Sub-text of the empty-inbox state"
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Label of a button that retries a failed action"
+  },
+  "add": "Add",
+  "@add": {
+    "description": "Label of the add-content button"
+  },
+  "openSettings": "Open settings",
+  "@openSettings": {
+    "description": "Button that navigates to the settings screen"
+  }
+}

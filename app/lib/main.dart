@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'l10n/app_localizations.dart';
 import 'config/app_settings.dart';
 import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
@@ -81,8 +82,10 @@ class VibedInsightApp extends ConsumerWidget {
     ref.read(shareIntentProvider);
 
     return MaterialApp.router(
-      title: 'VibedInsight',
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       themeMode: ThemeMode.system,

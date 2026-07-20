@@ -71,10 +71,11 @@ void main() {
     testWidgets('launches and renders the items from the API', (tester) async {
       final mock = await pumpApp(tester);
 
-      expect(find.text('Inbox'), findsOneWidget);
+      // Locale-independent anchors (the app is localized de/en).
+      expect(find.byType(AppBar), findsOneWidget);
       expect(mock.methodCalls, contains('getItems'));
       expect(find.byType(ItemCard), findsNWidgets(completedItems.length));
-      expect(find.text('Completed Article'), findsOneWidget);
+      expect(find.text('Completed Article'), findsOneWidget); // item title, not localized
     });
 
     testWidgets('shows the empty state when the API returns nothing',
@@ -82,7 +83,8 @@ void main() {
       await pumpApp(tester, items: const []);
 
       expect(find.byType(ItemCard), findsNothing);
-      expect(find.text('No items yet'), findsOneWidget);
+      // Empty-state icon is stable across locales.
+      expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
     });
 
     testWidgets('FAB opens the add-content sheet with URL and note options',

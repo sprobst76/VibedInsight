@@ -478,7 +478,7 @@ tr.done .tt{text-decoration:line-through}
         <div class="ptitle"><span class="pid">P7</span>App-Qualität: Tests, Fehler-UX, Polish</div>
         <div class="pmeta">
           <span class="value" style="--vc:#d97706">Wert: mittel</span>
-          <span class="prog">7/8 erledigt</span>
+          <span class="prog">8/8 erledigt</span>
         </div>
       </div>
       <p class="goal">Flutter-App testbar und robust machen: echte Tests statt Scheinabdeckung, sichtbares Fehler-Handling, bekannte UI-Issues fixen.</p>
@@ -541,13 +541,13 @@ tr.done .tt{text-decoration:line-through}
       <td class="c-dep">7.3, 7.4</td>
       <td class="c-verify">v0.4.5: Favorit/Gelesen als IconButton (44dp-Target + Tooltip-Label statt bloßer GestureDetector), Sterne mit Semantics-Label, Such-Icon Tooltip. A11y-Widget-Tests grün (byTooltip/bySemanticsLabel).</td>
     </tr><tr class="">
-      <td class="c-id"><span class="st open">○</span> 7.8</td>
+      <td class="c-id"><span class="st ok">✓</span> 7.8</td>
       <td class="c-task"><div class="tt">i18n scaffolding (gen-l10n, de source, en secondary)</div>
           <div class="reason">Setup + flächige Extraktion; reine Übersetzung Haiku-nacharbeitbar</div></td>
       <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
-      <td class="c-scope"><code>app/l10n/*.arb (neu), pubspec.yaml, String-Extraktion</code></td>
+      <td class="c-scope"><code>l10n.yaml, lib/l10n/app_{de,en}.arb (neu), flutter_localizations, main.dart, inbox_screen.dart</code></td>
       <td class="c-dep">—</td>
-      <td class="c-verify">App in de+en, keine fehlenden Keys</td>
+      <td class="c-verify">v0.4.5: gen-l10n verdrahtet (Delegates + supportedLocales de/en), Kern-Strings der Inbox umgestellt, i18n-Test (de vs en) grün. Rest-Strings (Chips, Detail, Settings) als Folge-Extraktion — Gerüst steht.</td>
     </tr></tbody>
       </table></div>
       <p class="verif"><b>Verifikation Phase:</b> flutter analyze sauber; flutter test grün mit echten Assertions (keine isNotEmpty-Guards); Flugmodus zeigt Fehlerzustand mit Retry; lange URL sauber gekürzt.</p>

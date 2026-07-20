@@ -1,0 +1,10 @@
+{
+  "@@locale": "de",
+  "appTitle": "VibedInsight",
+  "inboxTitle": "Posteingang",
+  "emptyInboxTitle": "Noch keine Einträge",
+  "emptyInboxSubtitle": "Füge deine erste URL hinzu, um zu starten",
+  "retry": "Erneut versuchen",
+  "add": "Hinzufügen",
+  "openSettings": "Einstellungen öffnen"
+}

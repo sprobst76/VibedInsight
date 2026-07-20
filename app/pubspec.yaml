@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
 
@@ -43,7 +45,7 @@ dependencies:
 
   # Time formatting
   timeago: ^3.7.0
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # Routing
   go_router: ^15.1.2
@@ -67,3 +69,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true

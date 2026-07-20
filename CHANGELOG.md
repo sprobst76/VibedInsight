@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Settings-Verbindungstest** prüft jetzt Erreichbarkeit UND Key-Gültigkeit
   getrennt (`ApiClient.checkAuth` gegen einen geschützten Endpunkt), statt nur
   das public `/health` — ein falscher Key wird sofort erkannt.
+- **Tests**: ItemsNotifier-Unit-Tests (Auto-Load, Fehler, Pagination, Toggle,
+  Suche) gegen Mock-API + In-Memory-Drift; Integrationstests komplett neu
+  geschrieben (hermetisch, echte Assertions statt `if isNotEmpty`-Scheinabdeckung)
+  — deckten einen realen Isolationsbug auf (globaler GoRouter behielt seine Route
+  zwischen Tests → jetzt zurücksetzbar). ~90 Host-Tests + 6 Device-Integrationstests.
+- **Performance**: `pageSize` zentralisiert (`ApiConfig`); Inbox lädt Seiten
+  inkrementell über virtualisierte `ListView.builder` (Pagination-Test).
+- **Accessibility**: Favorit/Gelesen als `IconButton` (44dp-Touch-Target +
+  Screenreader-Tooltip statt bloßer `GestureDetector`), Sterne mit Semantics-Label.
+- **i18n-Gerüst**: `flutter_localizations` + gen-l10n (de/en), Delegates verdrahtet,
+  Kern-Strings der Inbox lokalisiert (`lib/l10n/app_{de,en}.arb`).
 
 ## [0.4.4] - 2026-07-20
 
