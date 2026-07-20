@@ -11,9 +11,11 @@ import '../providers/items_provider.dart';
 import '../providers/share_intent_provider.dart';
 import '../providers/topics_provider.dart';
 import '../providers/weekly_provider.dart';
+import '../utils/error_messages.dart';
 import '../widgets/add_note_dialog.dart';
 import '../widgets/add_url_dialog.dart';
 import '../widgets/item_card.dart';
+import '../widgets/skeleton_loader.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
@@ -32,10 +34,10 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   @override
   void initState() {
     super.initState();
-    // Load initial items
+    // The items notifier loads itself on creation and reloads automatically
+    // when the connection settings change, so we only wire up the share
+    // intent provider here (handles URLs shared via notifications).
     Future.microtask(() {
-      ref.read(itemsProvider.notifier).loadItems(refresh: true);
-      // Initialize share intent provider (handles URLs via notifications)
       ref.read(shareIntentProvider);
     });
 
@@ -626,25 +628,42 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
   Widget _buildContent(ItemsState state) {
     if (state.isLoading && state.items.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList();
     }
 
     if (state.error != null && state.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text('Error: ${state.error}'),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () =>
-                  ref.read(itemsProvider.notifier).loadItems(refresh: true),
-              child: const Text('Retry'),
+      final info = describeError(state.error!);
+      return ListView(
+        // Keep pull-to-refresh usable even on the full-screen error state.
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
+        children: [
+          Icon(
+            info.isAuthError ? Icons.key_off : Icons.cloud_off,
+            size: 64,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            info.message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () =>
+                ref.read(itemsProvider.notifier).loadItems(refresh: true),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Erneut versuchen'),
+          ),
+          if (info.isAuthError) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.settings),
+              label: const Text('Einstellungen öffnen'),
             ),
           ],
-        ),
+        ],
       );
     }
 

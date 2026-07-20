@@ -121,13 +121,19 @@ class ItemCard extends StatelessWidget {
                       color: Theme.of(context).colorScheme.outline,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      item.source!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                    // Source can be a long URL — keep it to one line so it
+                    // truncates instead of overflowing the row.
+                    Expanded(
+                      child: Text(
+                        item.source!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Text(
                       timeago.format(item.createdAt),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(

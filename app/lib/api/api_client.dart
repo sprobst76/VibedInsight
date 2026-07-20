@@ -44,6 +44,26 @@ class ApiClient {
     }
   }
 
+  /// Verify the API key against a protected endpoint.
+  ///
+  /// `/health` is public, so it succeeds even with a wrong key — this hits a
+  /// key-protected endpoint so the settings screen can tell a reachable server
+  /// with an invalid key apart from a working connection.
+  /// Returns true on 200, false on 401/403; other errors propagate.
+  Future<bool> checkAuth() async {
+    try {
+      final response = await _dio.get(
+        '/items',
+        queryParameters: {'page': 1, 'page_size': 1},
+      );
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 403) return false;
+      rethrow;
+    }
+  }
+
   // Items
   Future<PaginatedItems> getItems({
     int page = 1,

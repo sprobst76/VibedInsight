@@ -109,12 +109,20 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
   ItemsNotifier(this._repository, this._apiClient) : super(ItemsState()) {
     // Listen to online status changes
     _repository.onlineStatus.listen((isOnline) {
+      if (!mounted) return;
       state = state.copyWith(isOffline: !isOnline);
       if (isOnline) {
         // Sync pending actions when back online
         _syncPendingActions();
       }
     });
+
+    // Initial load. A fresh notifier is created both on app start and
+    // whenever the connection settings change (a new server URL / API key
+    // rebuilds the API client, this repository, and this provider), so
+    // loading here means changed settings take effect immediately — the
+    // inbox no longer stays empty until an app restart.
+    loadItems(refresh: true);
   }
 
   ContentItem? _findItem(int id) {
@@ -214,6 +222,7 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
 
       final hasPending = await _repository.hasPendingActions();
 
+      if (!mounted) return;
       state = state.copyWith(
         items: refresh ? result.items : [...state.items, ...result.items],
         isLoading: false,
@@ -225,6 +234,7 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
       );
       _startPollingIfNeeded();
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

@@ -5,6 +5,27 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2026-07-20
+
+### Fixed
+- **Stale-ApiClient-Bug**: Nach dem Eintragen/Ändern von Server-URL oder API-Key
+  in den Einstellungen blieb die Inbox leer, bis die App neu gestartet wurde.
+  Der `ItemsNotifier` lädt jetzt beim Erzeugen selbst (und wird bei
+  Settings-Änderung neu erzeugt) → geänderte Verbindungsdaten greifen sofort.
+  `mounted`-Guards verhindern „use after dispose" bei schnellen Rebuilds.
+- **Lange URLs** in Item-Cards liefen aus der Zeile (RenderFlex-Overflow); die
+  Quelle wird jetzt einzeilig mit Ellipsis abgeschnitten.
+
+### Added (App-Qualität, P7)
+- **Loading-Skeletons** statt nacktem Spinner beim ersten Laden der Liste.
+- **Freundliche Fehler-UX**: API-Fehler werden übersetzt (Key ungültig /
+  Server nicht erreichbar / Server-Fehler) mit „Erneut versuchen" und — bei
+  Key-Fehlern — Direktlink in die Einstellungen (`utils/error_messages.dart`,
+  unit-getestet).
+- **Settings-Verbindungstest** prüft jetzt Erreichbarkeit UND Key-Gültigkeit
+  getrennt (`ApiClient.checkAuth` gegen einen geschützten Endpunkt), statt nur
+  das public `/health` — ein falscher Key wird sofort erkannt.
+
 ## [0.4.4] - 2026-07-20
 
 ### Added

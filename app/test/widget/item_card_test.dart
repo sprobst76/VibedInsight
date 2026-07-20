@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vibedinsight/models/content_item.dart';
 import 'package:vibedinsight/widgets/item_card.dart';
 
 import '../fixtures/test_fixtures.dart';
@@ -29,6 +30,36 @@ void main() {
       );
 
       expect(find.text('example.com'), findsOneWidget);
+    });
+
+    testWidgets('long source truncates without overflowing the row',
+        (tester) async {
+      final longSource =
+          'https://www.example.com/a/very/long/path/that/would/otherwise/'
+          'overflow/the/card/row/and/throw/a/render/flex/exception?x=1&y=2';
+      final item = ContentItem(
+        id: 99,
+        contentType: ContentType.link,
+        status: ProcessingStatus.completed,
+        title: 'Long URL item',
+        source: longSource,
+        createdAt: DateTime(2026, 1, 1),
+      );
+
+      // Constrain to a phone-ish width so a non-ellipsised source would overflow.
+      await tester.pumpWidget(
+        createTestableWidget(
+          SizedBox(width: 360, child: ItemCard(item: item, onTap: () {})),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // A RenderFlex overflow would surface as a test exception.
+      expect(tester.takeException(), isNull);
+
+      final sourceText = tester.widget<Text>(find.text(longSource));
+      expect(sourceText.maxLines, 1);
+      expect(sourceText.overflow, TextOverflow.ellipsis);
     });
 
     testWidgets('shows favorite icon when item is favorite', (tester) async {

@@ -46,19 +46,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     ref.read(appSettingsProvider.notifier).state = settings;
 
-    // Verbindung direkt testen
+    // Verbindung testen: erst Erreichbarkeit (/health ist public), dann den
+    // API-Key gegen einen geschützten Endpunkt — sonst meldet ein falscher
+    // Key trotzdem "erfolgreich".
     final api = ref.read(apiClientProvider);
     final healthy = await api.healthCheck();
+    bool? authOk;
+    if (healthy) {
+      try {
+        authOk = await api.checkAuth();
+      } catch (_) {
+        authOk = null; // erreichbar, aber Key-Check nicht eindeutig
+      }
+    }
 
     if (!mounted) return;
+    final String result;
+    if (!healthy) {
+      result = 'Server nicht erreichbar — URL prüfen';
+    } else if (authOk == false) {
+      result = 'Server erreichbar, aber API-Key ungültig';
+    } else if (authOk == null) {
+      result = 'Server erreichbar — API-Key nicht prüfbar';
+    } else {
+      result = 'Verbindung erfolgreich';
+    }
+
     setState(() {
       _saving = false;
-      _testResult = healthy
-          ? 'Verbindung erfolgreich'
-          : 'Server nicht erreichbar — URL prüfen';
+      _testResult = result;
     });
 
-    if (healthy) {
+    if (healthy && authOk == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Einstellungen gespeichert')),
       );
