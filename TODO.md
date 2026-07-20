@@ -200,8 +200,13 @@ Want to help? Pick an item from this list and submit a PR! See [CONTRIBUTING.md]
 
 Priorisiert nach Wert/Aufwand — Grundlage: pgvector + Embeddings sind jetzt im Ingest verdrahtet.
 
-1. **"Frag dein Archiv" (RAG-Chat)** — Chat-Endpoint: Frage → Embedding →
-   pgvector-Top-K → Ollama mit Kontext; Chat-Screen in der App.
+1. **"Frag dein Archiv" (RAG-Chat)** — ✅ v0.5.0 (P2): `POST /chat` +
+   Chat-Screen mit Quellen-Chips, end-to-end gegen prod verifiziert.
+   - [ ] **Prod-Latenz-Tuning**: qwen2.5:3b auf dem VPS (CPU, swappt) braucht
+     ~40–200s pro Antwort. Optionen: `rag_context_char_budget`/`rag_top_k`
+     senken, Streaming-Antwort, oder ein schnelleres/quantisiertes Modell.
+   - [ ] Inline-`[n]`-Zitate erzwingen (kleines Modell setzt sie unzuverlässig);
+     Chat-Verlauf optional persistieren; Chip-Strings (Quellen) i18n-Restarbeit.
 2. **Serendipity-Resurfacing** — täglich/wöchentlich ein altes ungelesenes
    Item hochspülen ("Vor 3 Monaten gespeichert — noch relevant?").
 3. **KI-Triage** — neue Items gegen bisherige Hoch-Ratings einschätzen und

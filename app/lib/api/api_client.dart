@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../config/api_config.dart';
+import '../models/chat.dart';
 import '../models/content_item.dart';
 
 class ApiClient {
@@ -181,6 +182,20 @@ class ApiClient {
       data: {'url': url},
     );
     return ContentItem.fromJson(response.data);
+  }
+
+  // Chat / RAG — "Frag dein Archiv"
+  Future<ChatAnswer> chat(String question, {int? topK}) async {
+    final response = await _dio.post(
+      '/chat',
+      data: {
+        'question': question,
+        if (topK != null) 'top_k': topK,
+      },
+      // The archive query hits Ollama; allow it more time than the default.
+      options: Options(receiveTimeout: const Duration(seconds: 180)),
+    );
+    return ChatAnswer.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<ContentItem> ingestText({

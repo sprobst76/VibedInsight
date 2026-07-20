@@ -28,4 +28,17 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get openSettings => 'Einstellungen öffnen';
+
+  @override
+  String get chatTitle => 'Frag dein Archiv';
+
+  @override
+  String get chatHint => 'Frag etwas…';
+
+  @override
+  String get chatEmptySubtitle =>
+      'Stell eine Frage — ich antworte aus deinen gespeicherten Inhalten.';
+
+  @override
+  String get chatSources => 'Quellen';
 }

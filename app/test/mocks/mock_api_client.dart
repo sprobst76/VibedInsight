@@ -2,6 +2,7 @@
 library;
 
 import 'package:vibedinsight/api/api_client.dart';
+import 'package:vibedinsight/models/chat.dart';
 import 'package:vibedinsight/models/content_item.dart';
 import '../fixtures/test_fixtures.dart';
 
@@ -120,6 +121,19 @@ class MockApiClient extends ApiClient {
       topics: item.topics,
       relatedItems: TestRelatedItems.all,
     );
+  }
+
+  ChatAnswer? chatAnswerToReturn;
+
+  @override
+  Future<ChatAnswer> chat(String question, {int? topK}) async {
+    methodCalls.add('chat');
+    lastCallParams['question'] = question;
+
+    if (shouldFail) throw Exception(failureMessage);
+
+    return chatAnswerToReturn ??
+        const ChatAnswer(answer: 'Antwort', sources: [], usedContext: true);
   }
 
   @override

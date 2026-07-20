@@ -27,5 +27,21 @@
   "openSettings": "Open settings",
   "@openSettings": {
     "description": "Button that navigates to the settings screen"
+  },
+  "chatTitle": "Ask your archive",
+  "@chatTitle": {
+    "description": "Title of the RAG chat screen"
+  },
+  "chatHint": "Ask a question…",
+  "@chatHint": {
+    "description": "Placeholder of the chat input field"
+  },
+  "chatEmptySubtitle": "Ask a question and I'll answer from your saved content.",
+  "@chatEmptySubtitle": {
+    "description": "Sub-text on the empty chat screen"
+  },
+  "chatSources": "Sources",
+  "@chatSources": {
+    "description": "Label above the list of cited sources"
   }
 }

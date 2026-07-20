@@ -5,6 +5,22 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-20
+
+### Added — RAG-Chat „Frag dein Archiv" (P2)
+- **`POST /chat`**: Frage → Embedding → pgvector-Cosine-Top-K über die
+  gespeicherten Item-Embeddings → nummerierter, budgetierter Kontext → Ollama
+  antwortet auf Deutsch, geerdet in den Quellen (Zitate `[n]`). Quellen werden
+  deterministisch aus dem Retrieval abgeleitet (nicht aus der Modellausgabe)
+  und sind user-scoped — die Quellen-`id` ist die `UserItem.id`, sodass die App
+  direkt zum Item springen kann. Kein-Kontext-Fall antwortet klar und ruft das
+  LLM nicht auf. Config: `rag_top_k=5`, `rag_min_similarity=0.2`, Kontext-Budget
+  6000 Zeichen. Backend-Tests + End-to-End gegen prod verifiziert.
+- **Chat-Screen in der App** („Frag dein Archiv", Icon in der Inbox-AppBar):
+  Konversations-UI mit Frage-/Antwort-Bubbles, Typing-Indikator, Fehler-Bubble
+  und antippbaren Quellen-Chips `[n] Titel` → öffnen das jeweilige Item.
+  Lokalisiert (de/en); Provider unit-getestet.
+
 ## [0.4.5] - 2026-07-20
 
 ### Fixed

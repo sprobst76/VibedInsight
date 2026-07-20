@@ -248,6 +248,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         ),
         _buildSortButton(),
         IconButton(
+          icon: const Icon(Icons.forum_outlined),
+          tooltip: AppLocalizations.of(context).chatTitle,
+          onPressed: () => context.push('/chat'),
+        ),
+        IconButton(
           icon: const Icon(Icons.hub),
           tooltip: 'Knowledge Graph',
           onPressed: () => context.push('/graph'),

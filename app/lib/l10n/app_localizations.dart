@@ -139,6 +139,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open settings'**
   String get openSettings;
+
+  /// Title of the RAG chat screen
+  ///
+  /// In en, this message translates to:
+  /// **'Ask your archive'**
+  String get chatTitle;
+
+  /// Placeholder of the chat input field
+  ///
+  /// In en, this message translates to:
+  /// **'Ask a question…'**
+  String get chatHint;
+
+  /// Sub-text on the empty chat screen
+  ///
+  /// In en, this message translates to:
+  /// **'Ask a question and I\'ll answer from your saved content.'**
+  String get chatEmptySubtitle;
+
+  /// Label above the list of cited sources
+  ///
+  /// In en, this message translates to:
+  /// **'Sources'**
+  String get chatSources;
 }
 
 class _AppLocalizationsDelegate

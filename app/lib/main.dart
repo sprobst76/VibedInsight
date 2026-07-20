@@ -6,6 +6,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import 'l10n/app_localizations.dart';
 import 'config/app_settings.dart';
+import 'screens/chat_screen.dart';
 import 'screens/inbox_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/settings_screen.dart';
@@ -64,6 +65,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/graph',
       builder: (context, state) => const GraphScreen(),
+    ),
+    GoRoute(
+      path: '/chat',
+      builder: (context, state) => const ChatScreen(),
     ),
     GoRoute(
       path: '/settings',

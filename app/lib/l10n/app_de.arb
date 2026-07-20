@@ -6,5 +6,9 @@
   "emptyInboxSubtitle": "Füge deine erste URL hinzu, um zu starten",
   "retry": "Erneut versuchen",
   "add": "Hinzufügen",
-  "openSettings": "Einstellungen öffnen"
+  "openSettings": "Einstellungen öffnen",
+  "chatTitle": "Frag dein Archiv",
+  "chatHint": "Frag etwas…",
+  "chatEmptySubtitle": "Stell eine Frage — ich antworte aus deinen gespeicherten Inhalten.",
+  "chatSources": "Quellen"
 }
