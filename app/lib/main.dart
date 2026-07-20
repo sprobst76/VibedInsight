@@ -39,7 +39,10 @@ void main() async {
   );
 }
 
-final _router = GoRouter(
+/// The app router. Public so widget/integration tests can reset it to '/'
+/// between pumps (it is a top-level singleton and otherwise keeps its
+/// location across test cases).
+final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
     GoRoute(
@@ -83,7 +86,7 @@ class VibedInsightApp extends ConsumerWidget {
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       themeMode: ThemeMode.system,
-      routerConfig: _router,
+      routerConfig: appRouter,
     );
   }
 

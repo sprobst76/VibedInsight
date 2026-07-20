@@ -1,234 +1,139 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:vibedinsight/config/app_settings.dart';
+import 'package:vibedinsight/database/app_database.dart';
 import 'package:vibedinsight/main.dart';
+import 'package:vibedinsight/providers/api_provider.dart';
+import 'package:vibedinsight/widgets/item_card.dart';
 
+import '../test/fixtures/test_fixtures.dart';
+import '../test/mocks/mock_api_client.dart';
+
+/// Integration tests that pump the real [VibedInsightApp] against a mock API
+/// and an in-memory database, so they run deterministically (no network) and
+/// assert on the widgets the app actually builds — a renamed widget or a
+/// broken flow now fails the test instead of being silently skipped.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  group('VibedInsight App Integration Tests', () {
-    testWidgets('App launches and shows inbox screen', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
+  // Only completed items: pending/processing items make the notifier start a
+  // periodic poll timer, which would keep pumpAndSettle from ever settling.
+  final completedItems = <dynamic>[
+    TestItems.completedItem, // 'Completed Article'
+    TestItems.favoriteItem,
+    TestItems.readItem,
+  ];
 
-      // Wait for initial load
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+  /// Pump the app with hermetic overrides. Returns the mock so tests can
+  /// assert on the calls the UI made.
+  Future<MockApiClient> pumpApp(
+    WidgetTester tester, {
+    List<dynamic>? items,
+  }) async {
+    final mock = MockApiClient()
+      ..itemsToReturn = (items ?? completedItems).cast();
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(() async => db.close());
 
-      // Verify app launched
+    // The app router is a top-level singleton that keeps its location across
+    // test cases; reset to the inbox so a prior test's navigation doesn't leak.
+    appRouter.go('/');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appSettingsProvider.overrideWith(
+            (ref) => AppSettings(
+              serverUrl: 'http://test.local',
+              apiKey: 'test-key',
+            ),
+          ),
+          apiClientProvider.overrideWithValue(mock),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
+        child: const VibedInsightApp(),
+      ),
+    );
+    // Short settle timeout so an unexpected non-settling tree (e.g. a repeating
+    // animation or poll timer) fails fast instead of blocking for 10 minutes.
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 30),
+    );
+    return mock;
+  }
+
+  group('Inbox', () {
+    testWidgets('launches and renders the items from the API', (tester) async {
+      final mock = await pumpApp(tester);
+
       expect(find.text('Inbox'), findsOneWidget);
+      expect(mock.methodCalls, contains('getItems'));
+      expect(find.byType(ItemCard), findsNWidgets(completedItems.length));
+      expect(find.text('Completed Article'), findsOneWidget);
     });
 
-    testWidgets('Can navigate to settings', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
+    testWidgets('shows the empty state when the API returns nothing',
+        (tester) async {
+      await pumpApp(tester, items: const []);
 
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-
-      // Find and tap the settings icon
-      final settingsButton = find.byIcon(Icons.settings);
-      if (settingsButton.evaluate().isNotEmpty) {
-        await tester.tap(settingsButton);
-        await tester.pumpAndSettle();
-
-        // Verify settings screen is shown
-        expect(find.text('Settings'), findsOneWidget);
-      }
+      expect(find.byType(ItemCard), findsNothing);
+      expect(find.text('No items yet'), findsOneWidget);
     });
 
-    testWidgets('Can open add content bottom sheet', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
+    testWidgets('FAB opens the add-content sheet with URL and note options',
+        (tester) async {
+      await pumpApp(tester);
 
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
 
-      // Find and tap the FAB
-      final fab = find.byType(FloatingActionButton);
-      if (fab.evaluate().isNotEmpty) {
-        await tester.tap(fab);
-        await tester.pumpAndSettle();
-
-        // Verify bottom sheet options are visible
-        expect(
-          find.textContaining('URL'),
-          findsWidgets,
-        );
-      }
+      expect(find.text('Add URL'), findsOneWidget);
+      expect(find.text('Add Note'), findsOneWidget);
     });
 
-    testWidgets('Pull to refresh works', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
+    testWidgets('overflow menu navigates to the settings screen',
+        (tester) async {
+      await pumpApp(tester);
 
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Einstellungen').last);
+      await tester.pumpAndSettle();
 
-      // Find the list and perform a drag down gesture
-      final listFinder = find.byType(CustomScrollView);
-      if (listFinder.evaluate().isNotEmpty) {
-        await tester.fling(listFinder, const Offset(0, 300), 1000);
-        await tester.pumpAndSettle(const Duration(seconds: 2));
-      }
-
-      // App should still be functional after refresh
-      expect(find.text('Inbox'), findsOneWidget);
+      // Settings-screen specific field label — renaming the field fails this.
+      expect(find.text('Server-URL'), findsOneWidget);
     });
 
-    testWidgets('Search bar is accessible', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
+    testWidgets('search icon reveals a search field', (tester) async {
+      await pumpApp(tester);
 
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
 
-      // Find search icon
-      final searchIcon = find.byIcon(Icons.search);
-      if (searchIcon.evaluate().isNotEmpty) {
-        await tester.tap(searchIcon);
-        await tester.pumpAndSettle();
-
-        // Search field should be visible
-        expect(find.byType(TextField), findsWidgets);
-      }
+      expect(find.byType(TextField), findsOneWidget);
     });
 
-    testWidgets('Topic filter chips are scrollable', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
+    testWidgets('the Unread filter chip reloads with unread_only applied',
+        (tester) async {
+      final mock = await pumpApp(tester);
 
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      // The real chips the inbox renders.
+      expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Favorites'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Archived'), findsOneWidget);
 
-      // Find horizontal scrollable for topic chips
-      final chipList = find.byType(SingleChildScrollView);
-      if (chipList.evaluate().isNotEmpty) {
-        // Test passes if we can find the scroll view
-        expect(chipList, findsWidgets);
-      }
-    });
+      final unread = find.widgetWithText(FilterChip, 'Unread');
+      expect(unread, findsOneWidget);
+      await tester.ensureVisible(unread);
+      await tester.tap(unread);
+      await tester.pumpAndSettle();
 
-    testWidgets('Empty state is shown when no items', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 3));
-
-      // If there are no items, an empty state should be shown
-      // This test verifies the app doesn't crash on empty state
-      expect(find.byType(MaterialApp), findsOneWidget);
-    });
-
-    testWidgets('Filter buttons toggle correctly', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-
-      // Find filter icon
-      final filterIcon = find.byIcon(Icons.filter_list);
-      if (filterIcon.evaluate().isNotEmpty) {
-        await tester.tap(filterIcon);
-        await tester.pumpAndSettle();
-
-        // Filter options should be visible
-        expect(
-          find.textContaining(RegExp(r'Favorite|Unread|Archived')),
-          findsWidgets,
-        );
-      }
-    });
-  });
-
-  group('Navigation Tests', () {
-    testWidgets('Bottom navigation works', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-
-      // Find bottom navigation items
-      final bottomNav = find.byType(BottomNavigationBar);
-      if (bottomNav.evaluate().isNotEmpty) {
-        // Tap each navigation item
-        final navItems = find.descendant(
-          of: bottomNav,
-          matching: find.byType(InkResponse),
-        );
-
-        if (navItems.evaluate().length > 1) {
-          await tester.tap(navItems.at(1));
-          await tester.pumpAndSettle();
-        }
-      }
-
-      // App should remain functional
-      expect(find.byType(MaterialApp), findsOneWidget);
-    });
-  });
-
-  group('Performance Tests', () {
-    testWidgets('App launches within reasonable time', (tester) async {
-      final stopwatch = Stopwatch()..start();
-
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 5));
-
-      stopwatch.stop();
-
-      // App should be ready within 5 seconds
-      expect(stopwatch.elapsedMilliseconds, lessThan(5000));
-    });
-
-    testWidgets('List scrolling is smooth', (tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: VibedInsightApp(),
-        ),
-      );
-
-      await tester.pumpAndSettle(const Duration(seconds: 2));
-
-      // Find scrollable area
-      final scrollable = find.byType(Scrollable);
-      if (scrollable.evaluate().isNotEmpty) {
-        // Perform multiple scroll gestures
-        for (var i = 0; i < 3; i++) {
-          await tester.fling(scrollable.first, const Offset(0, -200), 500);
-          await tester.pumpAndSettle();
-        }
-      }
-
-      // App should remain responsive
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(mock.lastCallParams['unreadOnly'], true);
     });
   });
 }
