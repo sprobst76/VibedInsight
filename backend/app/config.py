@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     rag_top_k: int = 4
     rag_min_similarity: float = 0.2
     rag_context_char_budget: int = 3000
-    rag_num_predict: int = 400  # max answer tokens (Ollama num_predict); 0 = model default
+    rag_num_predict: int = 200  # max answer tokens (Ollama num_predict); 0 = model default
 
     # Auto-generate the weekly summary every Sunday evening (server time)
     weekly_auto_generate: bool = True

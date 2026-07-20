@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   und sind user-scoped — die Quellen-`id` ist die `UserItem.id`, sodass die App
   direkt zum Item springen kann. Kein-Kontext-Fall antwortet klar und ruft das
   LLM nicht auf. Für CPU-only-Deployments latenz-getunt: `rag_top_k=4`,
-  Kontext-Budget 3000 Zeichen, Antwortlänge via Ollama `num_predict=400`
+  Kontext-Budget 3000 Zeichen, Antwortlänge via Ollama `num_predict=200`
   gecappt (`rag_min_similarity=0.2`). Backend-Tests + End-to-End gegen prod
   verifiziert.
 - **Chat-Screen in der App** („Frag dein Archiv", Icon in der Inbox-AppBar):
