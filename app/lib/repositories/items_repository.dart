@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../api/api_client.dart';
+import '../config/api_config.dart';
 import '../database/app_database.dart';
 import '../models/content_item.dart';
 
@@ -50,7 +51,7 @@ class ItemsRepository {
   /// Get items with online-first strategy
   Future<ItemsResult> getItems({
     int page = 1,
-    int pageSize = 20,
+    int pageSize = ApiConfig.pageSize,
     int? topicId,
     String? search,
     bool favoritesOnly = false,
@@ -109,7 +110,7 @@ class ItemsRepository {
 
   Future<ItemsResult> _getFromCache({
     int page = 1,
-    int pageSize = 20,
+    int pageSize = ApiConfig.pageSize,
     int? topicId,
     String? search,
     bool? favoritesOnly,

@@ -13,6 +13,11 @@ class MockApiClient extends ApiClient {
   ContentItem? singleItemToReturn;
   List<Topic> topicsToReturn = [];
 
+  /// Optional per-page items for pagination tests. When set, [getItems]
+  /// returns `itemsByPage[page]` and reports [pagesToReturn] total pages.
+  Map<int, List<ContentItem>>? itemsByPage;
+  int? pagesToReturn;
+
   // Track method calls for verification
   final List<String> methodCalls = [];
   final Map<String, dynamic> lastCallParams = {};
@@ -67,6 +72,18 @@ class MockApiClient extends ApiClient {
     });
 
     if (shouldFail) throw Exception(failureMessage);
+
+    if (itemsByPage != null) {
+      final pageItems = itemsByPage![page] ?? const [];
+      final pages = pagesToReturn ?? itemsByPage!.length;
+      return PaginatedItems(
+        items: pageItems,
+        total: pages * pageSize,
+        page: page,
+        pageSize: pageSize,
+        pages: pages,
+      );
+    }
 
     return PaginatedItems(
       items: itemsToReturn,

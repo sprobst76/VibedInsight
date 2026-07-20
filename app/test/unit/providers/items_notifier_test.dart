@@ -109,6 +109,41 @@ void main() {
     expect(container.read(itemsProvider).items.single.isFavorite, true);
   });
 
+  test('loadItems appends the next page and tracks hasMore', () async {
+    final mock = MockApiClient()
+      ..itemsByPage = {
+        1: [TestItems.completedItem],
+        2: [TestItems.favoriteItem],
+      }
+      ..pagesToReturn = 2;
+    final container = ProviderContainer(
+      overrides: [
+        apiClientProvider.overrideWithValue(mock),
+        appDatabaseProvider.overrideWithValue(db),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(itemsProvider.notifier);
+    await settle(); // auto-load page 1
+
+    var state = container.read(itemsProvider);
+    expect(state.items.map((i) => i.id), [TestItems.completedItem.id]);
+    expect(state.currentPage, 1);
+    expect(state.hasMore, true);
+
+    await notifier.loadItems(); // page 2
+    await settle();
+
+    state = container.read(itemsProvider);
+    expect(
+      state.items.map((i) => i.id),
+      [TestItems.completedItem.id, TestItems.favoriteItem.id],
+    );
+    expect(state.currentPage, 2);
+    expect(state.hasMore, false);
+  });
+
   test('setSearchQuery reloads with the query applied', () async {
     mockApi.itemsToReturn = TestItems.sampleList;
     final container = makeContainer();

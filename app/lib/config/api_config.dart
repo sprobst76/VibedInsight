@@ -5,4 +5,9 @@ class ApiConfig {
 
   static const Duration connectTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
+
+  /// Items fetched per page. The inbox loads pages incrementally as the user
+  /// scrolls (see ItemsNotifier.loadItems + InboxScreen._onScroll), so the
+  /// list stays smooth regardless of archive size.
+  static const int pageSize = 20;
 }

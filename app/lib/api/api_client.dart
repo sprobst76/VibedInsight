@@ -67,7 +67,7 @@ class ApiClient {
   // Items
   Future<PaginatedItems> getItems({
     int page = 1,
-    int pageSize = 20,
+    int pageSize = ApiConfig.pageSize,
     int? topicId,
     String? search,
     bool favoritesOnly = false,
