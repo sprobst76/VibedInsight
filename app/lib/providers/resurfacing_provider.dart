@@ -9,7 +9,13 @@ import 'api_provider.dart';
 /// Holds the current "rediscovered" item (or null). Fetched once per app
 /// session; shows a local notification at most once per day.
 class ResurfacingNotifier extends StateNotifier<ContentItem?> {
-  ResurfacingNotifier(this._api, this._notifications) : super(null);
+  ResurfacingNotifier(this._api, this._notifications) : super(null) {
+    // Load on creation. A fresh notifier is created on app start and whenever
+    // the connection settings change (which rebuilds the API client and this
+    // provider), so a newly entered API key takes effect without an app
+    // restart — same reasoning as ItemsNotifier.
+    load();
+  }
 
   final ApiClient _api;
   final NotificationService _notifications;

@@ -35,22 +35,27 @@ void main() {
     return container;
   }
 
-  test('load surfaces the item the API returns', () async {
+  // Let the notifier's constructor auto-load settle.
+  Future<void> settle() =>
+      Future<void>.delayed(const Duration(milliseconds: 20));
+
+  test('surfaces the item the API returns (auto-loads on creation)', () async {
     mockApi.resurfacingToReturn = _item(9);
     final container = makeContainer();
 
-    await container.read(resurfacingProvider.notifier).load();
+    container.read(resurfacingProvider.notifier); // triggers constructor load
+    await settle();
 
-    final item = container.read(resurfacingProvider);
-    expect(item?.id, 9);
+    expect(container.read(resurfacingProvider)?.id, 9);
     expect(mockApi.methodCalls, contains('getResurfacing'));
   });
 
-  test('load leaves state null when there is nothing to resurface', () async {
+  test('leaves state null when there is nothing to resurface', () async {
     mockApi.resurfacingToReturn = null;
     final container = makeContainer();
 
-    await container.read(resurfacingProvider.notifier).load();
+    container.read(resurfacingProvider.notifier);
+    await settle();
 
     expect(container.read(resurfacingProvider), isNull);
   });
@@ -58,21 +63,21 @@ void main() {
   test('dismiss clears the surfaced item', () async {
     mockApi.resurfacingToReturn = _item(1);
     final container = makeContainer();
-
-    await container.read(resurfacingProvider.notifier).load();
+    final notifier = container.read(resurfacingProvider.notifier);
+    await settle();
     expect(container.read(resurfacingProvider), isNotNull);
 
-    container.read(resurfacingProvider.notifier).dismiss();
+    notifier.dismiss();
     expect(container.read(resurfacingProvider), isNull);
   });
 
-  test('load fetches only once per session', () async {
+  test('fetches only once per session', () async {
     mockApi.resurfacingToReturn = _item(2);
     final container = makeContainer();
     final notifier = container.read(resurfacingProvider.notifier);
+    await settle();
 
-    await notifier.load();
-    await notifier.load();
+    await notifier.load(); // explicit extra call is a no-op
 
     final calls =
         mockApi.methodCalls.where((c) => c == 'getResurfacing').length;
@@ -83,7 +88,8 @@ void main() {
     mockApi.setFailure('boom');
     final container = makeContainer();
 
-    await container.read(resurfacingProvider.notifier).load();
+    container.read(resurfacingProvider.notifier);
+    await settle();
 
     expect(container.read(resurfacingProvider), isNull);
   });

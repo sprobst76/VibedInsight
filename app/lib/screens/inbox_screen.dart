@@ -41,8 +41,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     // intent provider here (handles URLs shared via notifications).
     Future.microtask(() {
       ref.read(shareIntentProvider);
-      // Serendipity: maybe surface an old, unread item to rediscover.
-      ref.read(resurfacingProvider.notifier).load();
     });
 
     // Pagination
