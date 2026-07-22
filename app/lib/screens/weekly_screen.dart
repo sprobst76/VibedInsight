@@ -578,16 +578,16 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              summary.itemsProcessed > 0
-                  ? 'Erstelle eine KI-Zusammenfassung deiner ${summary.itemsProcessed} Artikel'
-                  : 'Fuege zuerst Inhalte hinzu',
+              summary.itemsCount > 0
+                  ? 'Erstelle eine KI-Zusammenfassung deiner ${summary.itemsCount} Artikel'
+                  : 'Füge zuerst Inhalte hinzu',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.outline,
                   ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            if (summary.itemsProcessed > 0)
+            if (summary.itemsCount > 0)
               FilledButton.icon(
                 onPressed: isGenerating
                     ? null

@@ -5,6 +5,22 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-07-22
+
+### Fixed
+- **Weekly-Screen Leer-Zustand**: Der Button „Zusammenfassung erstellen" hing an
+  `itemsProcessed > 0`, was aber erst *nach* der Generierung > 0 wird — bei einer
+  frischen Woche mit Artikeln erschien der Button daher nie. Jetzt an
+  `itemsCount > 0` geknüpft. (Aufgefallen beim Audio-Digest-Test: ohne Digest
+  keine Audio-Karte.)
+
+### Known
+- **Weekly-Generierung ist bei vielen Items langsam** (CPU-VPS): ein Digest über
+  ~26 Artikel überschreitet einen synchronen Request (>280 s Prompt-Eval). Der
+  „generieren"-Button kann dadurch ins Timeout laufen. Folgeaufgabe: Generierung
+  asynchron (Background-Job + Polling wie Reprocess). Betrifft das Weekly-Feature
+  generell, nicht nur Audio.
+
 ## [0.6.0] - 2026-07-22
 
 ### Added — Audio-Digest App-Playback (P13.4)
