@@ -301,3 +301,23 @@ async def retriage(
 
     count = await retriage_user(db, user)
     return {"message": f"Retriaged {count} items", "count": count}
+
+
+@router.post("/audio/benchmark")
+async def audio_benchmark(user: User = Depends(get_current_user)):
+    """
+    Synthesize a fixed German sample and report on-box TTS timing.
+
+    Runs synchronously so the real VPS latency is measurable without SSH:
+    `curl -X POST -H "X-API-Key: ..." .../admin/audio/benchmark`.
+    """
+    from app.services import audio
+
+    sample = (
+        "Willkommen zu deinem Wochenrückblick. Diese Woche drehte sich vieles um "
+        "selbst-gehostete künstliche Intelligenz und persönliches Wissensmanagement. "
+        "Lokale Sprachmodelle werden gut genug, um echte Alltagsaufgaben zu übernehmen, "
+        "ohne dass Daten das eigene Gerät verlassen. Die wichtigste Erkenntnis der Woche: "
+        "Der Engpass ist selten das Modell, sondern die Pipeline drumherum."
+    )
+    return await asyncio.to_thread(audio.benchmark, sample)

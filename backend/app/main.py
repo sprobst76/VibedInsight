@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import init_db
 from app.routers import (
     admin,
+    audio,
     chat,
     export,
     ingest,
@@ -30,7 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "0.5.3"
+APP_VERSION = "0.6.0"
 
 
 @asynccontextmanager
@@ -96,6 +97,7 @@ app.include_router(admin.router, prefix="/admin", tags=["Admin"])
 app.include_router(export.router, prefix="/export", tags=["Export"])
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(resurface.router, prefix="/resurface", tags=["Resurface"])
+app.include_router(audio.router, prefix="/audio", tags=["Audio"])
 
 
 @app.get("/health")

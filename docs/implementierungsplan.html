@@ -81,7 +81,7 @@ tr.done .tt{text-decoration:line-through}
 
 <div class="card">
   <div class="stats">
-    <div class="stat"><b>12</b><span>Phasen (P1–P12)</span></div>
+    <div class="stat"><b>13</b><span>Phasen (P1–P13)</span></div>
     <div class="stat"><b>63</b><span>offene Aufgaben</span></div>
     <div class="stat"><b>6</b><span>erledigt (Session)</span></div>
     <div class="stat"><b>9</b><span>Entscheidungen (?)</span></div>
@@ -93,7 +93,7 @@ tr.done .tt{text-decoration:line-through}
 <div style="font-size:13px;color:var(--muted);margin:0 0 4px"><b style="color:var(--ink)">Modell-Legende</b> — billigstes Modell, das die Aufgabe zuverlässig löst; hochstufen sobald echte Logik/Strategie ins Spiel kommt:</div>
 <div class="legendrow" style="margin-bottom:8px"><span class="dl"><span class="dot m-haiku"></span>Haiku 4.5</span><span class="dl"><span class="dot m-sonnet"></span>Sonnet 5</span><span class="dl"><span class="dot m-opus"></span>Opus 4.8</span><span class="dl"><span class="dot m-fable"></span>Fable 5</span><span class="dl"><span class="dot m-ask"></span>?</span></div>
 
-<div class="nav"><a href="#P0" class="navdone">P0 · Erledigt in dieser Session (Kontext)</a><a href="#P1" class="">P1 · Ops-Reste &amp; Security-Hygiene</a><a href="#P2" class="">P2 · Frag dein Archiv — RAG-Chat</a><a href="#P3" class="">P3 · Serendipity-Resurfacing + Digest-Push</a><a href="#P4" class="">P4 · KI-Triage der Inbox</a><a href="#P5" class="">P5 · Capture-Kanäle</a><a href="#P6" class="">P6 · Backend-Härtung &amp; Betrieb (v1.0-Fundament)</a><a href="#P7" class="">P7 · App-Qualität: Tests, Fehler-UX, Polish</a><a href="#P8" class="">P8 · Collections, User-Tags &amp; Smart Collections (v0.3.0)</a><a href="#P9" class="">P9 · AI-Erweiterungen: Prompts, Modell-Routing, Key-Insights (v0.4.0)</a><a href="#P10" class="">P10 · Export, Import, RSS &amp; Offline-Cache (v0.5.0)</a><a href="#P11" class="">P11 · Knowledge-Graph-Ausbau &amp; Monitoring</a><a href="#P12" class="">P12 · Ausblick (bewusst später): Multi-User, Provider, iOS, Sync</a></div>
+<div class="nav"><a href="#P0" class="navdone">P0 · Erledigt in dieser Session (Kontext)</a><a href="#P1" class="">P1 · Ops-Reste &amp; Security-Hygiene</a><a href="#P2" class="">P2 · Frag dein Archiv — RAG-Chat</a><a href="#P3" class="">P3 · Serendipity-Resurfacing + Digest-Push</a><a href="#P4" class="">P4 · KI-Triage der Inbox</a><a href="#P5" class="">P5 · Capture-Kanäle</a><a href="#P6" class="">P6 · Backend-Härtung &amp; Betrieb (v1.0-Fundament)</a><a href="#P7" class="">P7 · App-Qualität: Tests, Fehler-UX, Polish</a><a href="#P8" class="">P8 · Collections, User-Tags &amp; Smart Collections (v0.3.0)</a><a href="#P9" class="">P9 · AI-Erweiterungen: Prompts, Modell-Routing, Key-Insights (v0.4.0)</a><a href="#P10" class="">P10 · Export, Import, RSS &amp; Offline-Cache (v0.5.0)</a><a href="#P11" class="">P11 · Knowledge-Graph-Ausbau &amp; Monitoring</a><a href="#P12" class="">P12 · Ausblick (bewusst später): Multi-User, Provider, iOS, Sync</a><a href="#P13" class="">P13 · Audio-Digest — höre deinen Wochenrückblick</a></div>
 
 <section class="phase done" id="P0">
       <div class="phead">
@@ -829,6 +829,68 @@ tr.done .tt{text-decoration:line-through}
     </tr></tbody>
       </table></div>
       <p class="verif"><b>Verifikation Phase:</b> Für jeden Punkt existiert eine dokumentierte Entscheidung (bauen/nicht/wann) — Verifikation ist Entscheidungsqualität, nicht Code.</p>
+    </section><section class="phase" id="P13">
+      <div class="phead">
+        <div class="ptitle"><span class="pid">P13</span>Audio-Digest — höre deinen Wochenrückblick</div>
+        <div class="pmeta">
+          <span class="value" style="--vc:#dc2626">Wert: hoch</span>
+          <span class="prog">2/6 erledigt</span>
+        </div>
+      </div>
+      <p class="goal">Persönliches NotebookLM-Pendant: den vorhandenen Weekly-Digest (und später Topic-Cluster) als gesprochenes Audio ausgeben — mit dem Alleinstellungsmerkmal, dass jede Episode im eigenen Archiv verankert ist und per Tap zu &#x27;mehr dazu&#x27; in den RAG-Chat führt (was NotebookLM strukturell nicht kann). TTS läuft lokal via Piper — auf 4 Kernen ~30x Echtzeit gemessen, also kein Flaschenhals.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Aufgabe &amp; Begründung</th><th>Modell</th><th>Scope</th><th>Dep</th><th>Verifikation</th></tr></thead>
+        <tbody><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 13.1</td>
+      <td class="c-task"><div class="tt">Performance-Spike: TTS-Machbarkeit auf CPU</div>
+          <div class="reason">Risiko-Weiche: taugt lokales TTS auf dem CPU-VPS? Piper de_DE-thorsten-medium: ~59 s Audio in ~2 s (RTF ~0,03), auf 4 Kerne gedrosselt gemessen — TTS ist NICHT der Flaschenhals (anders als RAG-Prompt-Eval).</div></td>
+      <td class="c-model"><span class="badge m-opus">Opus 4.8</span></td>
+      <td class="c-scope"><code>Standalone-Benchmark (Piper + Thorsten-Voice, RTF/Speed-Messung)</code></td>
+      <td class="c-dep">—</td>
+      <td class="c-verify">Messwerte dokumentiert: RTF ~0,03, ~30x Echtzeit; Sample-MP3 angehört</td>
+    </tr><tr class="done">
+      <td class="c-id"><span class="st ok">✓</span> 13.2</td>
+      <td class="c-task"><div class="tt">Backend-MVP: /audio/weekly + TTS-Service + Benchmark-Endpoint</div>
+          <div class="reason">Kleinster echter Schnitt: vorhandenen Digest-Text (kein Extra-LLM-Call) -&gt; Piper -&gt; MP3, auf Disk gecacht; /admin/audio/benchmark misst On-Box-Latenz per curl.</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend: services/audio.py, routers/audio.py, admin.py, config.py, main.py, tests/test_audio.py</code></td>
+      <td class="c-dep">13.1</td>
+      <td class="c-verify">pytest grün mit echter Voice (6/6); ruff sauber; Sample über echten Router-Code erzeugt (33 s MP3)</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 13.3</td>
+      <td class="c-task"><div class="tt">Docker-Image: Piper + ffmpeg + gebackene Voice, VPS-Deploy</div>
+          <div class="reason">Image wächst ~300 MB (onnxruntime + ffmpeg + 61 MB Voice). Auf VPS deployen und /admin/audio/benchmark dort messen (echte 4-Kern/7,6-GB-Zahl).</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>backend/Dockerfile (fertig), Deploy nach main, On-VPS-Benchmark, ggf. audio_cache-Volume prüfen</code></td>
+      <td class="c-dep">13.2</td>
+      <td class="c-verify">VPS-Benchmark &lt; ~1x Echtzeit; /audio/weekly/&lt;id&gt; liefert MP3; Image-Größe notiert</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 13.4</td>
+      <td class="c-task"><div class="tt">App: Abspielen des Wochen-Digests (Play-Button + Player)</div>
+          <div class="reason">Standard-Flutter: Play-Button im weekly_screen, Audio streamen/abspielen (just_audio/audioplayers), Ladezustand.</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app: weekly_screen.dart, api_client.dart (getWeeklyAudio), neues Player-Widget, pubspec (audioplayers)</code></td>
+      <td class="c-dep">13.3</td>
+      <td class="c-verify">adb: Digest abspielen, deutsche Sprache hörbar, Pause/Resume; flutter analyze sauber</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 13.5</td>
+      <td class="c-task"><div class="tt">Drill-down: &#x27;Mehr dazu&#x27; öffnet RAG-Chat mit Digest-Quellen</div>
+          <div class="reason">Das eigentliche Alleinstellungsmerkmal gegenüber NotebookLM: Audio ist kein Dead-End, sondern Einstieg ins eigene Archiv.</div></td>
+      <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
+      <td class="c-scope"><code>app: Verknüpfung weekly-&gt;chat mit vorbelegter Frage/Quellen; ggf. backend Quellen-IDs am Digest</code></td>
+      <td class="c-dep">13.4, P2</td>
+      <td class="c-verify">Tap unter Episode öffnet Chat, thematisch vorbelegt; Quelle antippbar</td>
+    </tr><tr class="">
+      <td class="c-id"><span class="st open">○</span> 13.6</td>
+      <td class="c-task"><div class="tt">Podcast-Skript statt Vorlese-Digest (optional, Ausbau)</div>
+          <div class="reason">qwen2.5 schreibt aus Topic-Cluster ein 3-5-Min-Skript (lockerer, gesprochener Ton statt vorgelesener Zusammenfassung). Reine Textarbeit, TTS bleibt gleich billig.</div></td>
+      <td class="c-model"><span class="badge m-fable">Fable 5</span></td>
+      <td class="c-scope"><code>backend: prompts/podcast_script.txt (neu), audio-Router nutzt Skript statt Roh-Digest; Topic-Auswahl</code></td>
+      <td class="c-dep">13.4</td>
+      <td class="c-verify">Generiertes Skript klingt gesprochen (nicht vorgelesen); Länge 3-5 Min; deutsche Qualität ok</td>
+    </tr></tbody>
+      </table></div>
+      <p class="verif"><b>Verifikation Phase:</b> Weekly-Digest in der App als Audio abspielbar (deutsche Sprache, on-VPS synthetisiert); &#x27;Mehr dazu&#x27; führt in den RAG-Chat; On-VPS-TTS-Benchmark dokumentiert. MVP (13.1/13.2) bereits verifiziert: 30x-Echtzeit-Messung + 6/6 Tests mit echter Voice.</p>
     </section>
 
 <p class="foot">Erstellt per Modell-Vorauswahl (Fable 5). Single Source of Truth fürs Modell-Routing dieser Arbeitspakete — Etiketten bei Bedarf während der Ausführung nachziehen.</p>

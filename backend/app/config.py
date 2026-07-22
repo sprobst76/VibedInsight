@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     # (rating >= triage_min_rating). Used to pre-sort the inbox.
     triage_min_rating: int = 4
 
+    # Audio-Digest ("Höre deinen Wochenrückblick"): Piper TTS.
+    # The voice model lives in tts_voices_dir as <tts_voice>.onnx + .onnx.json
+    # (baked into the Docker image; NOT in git). Synthesized audio is cached in
+    # audio_cache_dir. audio_format "mp3" needs ffmpeg; falls back to WAV.
+    audio_enabled: bool = True
+    tts_voice: str = "de_DE-thorsten-medium"
+    tts_voices_dir: str = "/app/voices"
+    audio_cache_dir: str = "/app/data/audio"
+    audio_format: str = "mp3"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 

@@ -5,6 +5,35 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-22
+
+### Added — Audio-Digest MVP (P13, Backend)
+- **`GET /audio/weekly/{id}`**: gibt den vorhandenen Weekly-Digest als
+  gesprochenes Audio aus (MP3 wenn ffmpeg da, sonst WAV). Kein Extra-LLM-Call —
+  der Digest-Text wird zu natürlicher Sprache zusammengesetzt
+  (`build_digest_script`) und **auf Disk gecacht** (Key = Digest-`generated_at`),
+  also max. einmal pro Digest synthetisiert.
+- **TTS via Piper** (`app/services/audio.py`, Stimme `de_DE-thorsten-medium`,
+  in den Docker-Build gebacken, ~61 MB; nicht in git). Lazy-geladen, gecacht.
+- **`GET /audio/status`**: meldet, ob TTS verfügbar ist (App kann den
+  Play-Button ausblenden). Fehlt Piper/Voice → Endpoints degradieren zu 503.
+- **`POST /admin/audio/benchmark`**: misst On-Box-TTS-Latenz per curl — direkt
+  auf dem VPS ausführbar, ohne SSH.
+
+### Performance
+- Piper-Spike (P13.1): **~59 s deutsche Sprache in ~2 s** synthetisiert
+  (RTF ~0,03, ~30× Echtzeit), auf 4 Kerne gedrosselt gemessen. TTS ist damit
+  **nicht** der Flaschenhals — anders als die RAG-Prompt-Eval. Synthese läuft
+  komfortabel auf dem CPU-VPS und wird gecacht.
+
+### Notes
+- **Backend-only Vorschau.** App-Playback (Play-Button im weekly_screen),
+  „Mehr dazu"→RAG-Chat-Drilldown und optionaler Podcast-Skript-Generator sind
+  die nächsten Schnitte (P13.3–13.6). Die App-Version bleibt bis dahin bei
+  0.5.3 (kein Play-Upload nötig).
+- Docker-Image wächst ~300 MB (onnxruntime + ffmpeg + Voice) — bewusst
+  akzeptiert für die Self-hosted-Single-User-App.
+
 ## [0.5.3] - 2026-07-20
 
 ### Added — KI-Triage der Inbox (P4)

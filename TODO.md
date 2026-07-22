@@ -215,5 +215,15 @@ Priorisiert nach Wert/Aufwand — Grundlage: pgvector + Embeddings sind jetzt im
 4. **Capture-Kanäle** — Telegram-Bot oder Bookmarklet gegen die Ingest-API.
 5. **Push für Weekly-Digest** — Notification-Tap-Handler implementieren
    (Payload wird bereits gesetzt, Handler ist leer).
+6. **Audio-Digest** (P13) — persönliches NotebookLM-Pendant: Weekly-Digest als
+   gesprochenes Audio (Piper TTS, lokal, ~30× Echtzeit auf CPU gemessen).
+   - [x] **MVP v0.6.0**: `GET /audio/weekly/{id}` (Digest→MP3, gecacht),
+     `/audio/status`, `POST /admin/audio/benchmark`; TTS-Service + Tests.
+   - [ ] Docker-Image auf VPS deployen + `/admin/audio/benchmark` dort messen.
+   - [ ] App: Play-Button + Player im weekly_screen.
+   - [ ] „Mehr dazu" → RAG-Chat mit den Digest-Quellen (Alleinstellungsmerkmal
+     ggü. NotebookLM: Audio als Einstieg ins eigene Archiv, kein Dead-End).
+   - [ ] Optional: qwen2.5 schreibt ein gesprochenes Podcast-Skript statt den
+     Digest vorzulesen.
 
 Last updated: 2026-07-11
