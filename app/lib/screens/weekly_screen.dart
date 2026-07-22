@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../models/content_item.dart';
+import '../providers/api_provider.dart';
 import '../providers/topics_provider.dart';
 import '../providers/weekly_provider.dart';
+import '../widgets/weekly_audio_player.dart';
 
 class WeeklyScreen extends ConsumerStatefulWidget {
   const WeeklyScreen({super.key});
@@ -196,6 +198,12 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
             ],
             const SizedBox(height: 16),
             if (summary.hasSummary) ...[
+              // Audio-Digest (P13): play button shown only when the backend
+              // can synthesize speech.
+              if (ref.watch(audioAvailableProvider).value == true) ...[
+                WeeklyAudioPlayer(key: ValueKey(summary.id), summaryId: summary.id),
+                const SizedBox(height: 20),
+              ],
               // TL;DR section - most prominent
               if (summary.hasTldr) ...[
                 _buildTldrSection(summary),

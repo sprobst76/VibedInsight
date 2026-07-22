@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2026-07-22
 
+### Added — Audio-Digest App-Playback (P13.4)
+- **Play-Button + Inline-Player** im Wochenrückblick (`weekly_screen`): lädt das
+  Audio lazy beim ersten Tap (Backend synthetisiert einmal + cacht), spielt via
+  `just_audio` mit Play/Pause, Position-Slider und Zeitanzeige. Der Button
+  erscheint nur, wenn das Backend TTS kann (`GET /audio/status`, neuer
+  `audioAvailableProvider`); fehlt es, degradiert der Player zu einer
+  Fehlerzeile mit „Erneut".
+- `ApiClient.downloadWeeklyAudio` (Temp-Datei je Digest) + `audioAvailable`.
+- App-Version **0.6.0+24**.
+
 ### Added — Audio-Digest MVP (P13, Backend)
 - **`GET /audio/weekly/{id}`**: gibt den vorhandenen Weekly-Digest als
   gesprochenes Audio aus (MP3 wenn ffmpeg da, sonst WAV). Kein Extra-LLM-Call —
@@ -29,12 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mit ~80 s). End-to-End verifiziert: `/audio/weekly/3` → 200 audio/mpeg 341 KB.
 
 ### Notes
-- **Backend-only Vorschau.** App-Playback (Play-Button im weekly_screen),
-  „Mehr dazu"→RAG-Chat-Drilldown und optionaler Podcast-Skript-Generator sind
-  die nächsten Schnitte (P13.4–13.6). Die App-Version bleibt bis dahin bei
-  0.5.3 (kein Play-Upload nötig).
+- **Nächste Schnitte:** „Mehr dazu"→RAG-Chat-Drilldown (P13.5) und optionaler
+  Podcast-Skript-Generator (P13.6).
 - Docker-Image wächst ~300 MB (onnxruntime + ffmpeg + Voice) — bewusst
   akzeptiert für die Self-hosted-Single-User-App.
+- On-Device-Audibilität ist UAT nach dem Play-Release (lokales Debug-APK lässt
+  sich wegen Play-Signatur nicht über die installierte Version legen).
 
 ## [0.5.3] - 2026-07-20
 

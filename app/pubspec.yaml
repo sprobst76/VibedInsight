@@ -1,7 +1,7 @@
 name: vibedinsight
 description: "Personal knowledge platform - collect, analyze, summarize"
 publish_to: 'none'
-version: 0.5.3+23
+version: 0.6.0+24
 
 environment:
   sdk: ^3.10.4
@@ -42,6 +42,9 @@ dependencies:
 
   # Local Notifications
   flutter_local_notifications: ^18.0.1
+
+  # Audio playback (Audio-Digest / P13)
+  just_audio: ^0.9.42
 
   # Time formatting
   timeago: ^3.7.0

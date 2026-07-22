@@ -17,6 +17,14 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(baseUrl: settings.serverUrl, apiKey: settings.apiKey);
 });
 
+/// Whether the backend can synthesize audio (Audio-Digest / P13). Used to
+/// hide the play button on backends without a TTS voice. Recomputed when the
+/// API client changes (e.g. server/key change in settings).
+final audioAvailableProvider = FutureProvider<bool>((ref) async {
+  final api = ref.watch(apiClientProvider);
+  return api.audioAvailable();
+});
+
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
   ref.onDispose(() => db.close());

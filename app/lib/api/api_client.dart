@@ -318,6 +318,33 @@ class ApiClient {
     return WeeklySummary.fromJson(response.data);
   }
 
+  // Audio-Digest (P13) — spoken weekly summary via Piper TTS
+  /// Whether the backend can synthesize audio (voice model present).
+  Future<bool> audioAvailable() async {
+    try {
+      final response = await _dio.get('/audio/status');
+      return (response.data as Map<String, dynamic>)['available'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Download the weekly digest audio to a temp file and return its path.
+  ///
+  /// The backend caches the synthesized audio, so repeat calls are cheap. The
+  /// file is named by summary id and overwritten each fetch (a regenerated
+  /// digest changes its audio). Throws on 404/400/503 so the caller can react.
+  Future<String> downloadWeeklyAudio(int summaryId) async {
+    final dir = await getTemporaryDirectory();
+    final savePath = '${dir.path}/weekly_audio_$summaryId.mp3';
+    await _dio.download(
+      '/audio/weekly/$summaryId',
+      savePath,
+      options: Options(receiveTimeout: const Duration(seconds: 120)),
+    );
+    return savePath;
+  }
+
   Future<String> downloadExport() async {
     final dir = await getApplicationDocumentsDirectory();
     final date = DateTime.now().toIso8601String().substring(0, 10);
