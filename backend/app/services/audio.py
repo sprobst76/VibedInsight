@@ -44,6 +44,12 @@ _ABBREVIATIONS = {
     r"\bAI\b": "künstliche Intelligenz",
 }
 
+# Proper names the German voice mispronounces — respelled phonetically.
+# Applied case-insensitively (the replacement carries the intended casing).
+_PRONUNCIATIONS = {
+    r"\bClaude\b": "Kload",
+}
+
 
 def normalize_for_speech(text: str) -> str:
     """Clean text so the TTS voice reads it naturally.
@@ -62,6 +68,9 @@ def normalize_for_speech(text: str) -> str:
     # Expand abbreviations.
     for pattern, repl in _ABBREVIATIONS.items():
         text = re.sub(pattern, repl, text)
+    # Respell mispronounced names.
+    for pattern, repl in _PRONUNCIATIONS.items():
+        text = re.sub(pattern, repl, text, flags=re.IGNORECASE)
     # Collapse whitespace but keep sentence breaks as newlines.
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{2,}", "\n", text)

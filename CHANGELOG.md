@@ -5,6 +5,15 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-07-22 (Backend)
+
+### Fixed — Audio-Digest Aussprache
+- Eigennamen, die die deutsche Stimme verfehlt, werden phonetisch ersetzt
+  (`_PRONUNCIATIONS` in `normalize_for_speech`): „Claude" → „Kload".
+- Cache-Key um eine **Speech-Version** erweitert (`_SPEECH_CACHE_VERSION`),
+  damit Änderungen an Prompt/Normalisierung gecachte Audio automatisch neu
+  erzeugen statt eine ältere Fassung auszuliefern.
+
 ## [0.6.3] - 2026-07-22 (Backend)
 
 ### Changed — Audio-Digest: gesprochenes Skript statt Vorlesen (P13.6)

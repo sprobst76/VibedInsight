@@ -79,12 +79,20 @@ async def _build_spoken_script(summary: WeeklySummary) -> str:
     return build_digest_script(summary)
 
 
+# Bump when the script prompt or speech normalization changes, so cached audio
+# is regenerated instead of serving an older rendering.
+_SPEECH_CACHE_VERSION = "2"
+
+
 def _cache_path(summary: WeeklySummary, ext: str) -> Path:
     stamp = int(summary.generated_at.timestamp()) if summary.generated_at else 0
-    # Include the script mode so switching between podcast/plain doesn't serve
-    # stale audio from the other mode.
+    # Include the script mode and speech version so a mode switch or a
+    # normalization change doesn't serve stale audio.
     mode = "pod" if settings.audio_podcast_script else "plain"
-    name = f"weekly_{summary.id}_{stamp}_{settings.tts_voice}_{mode}.{ext}"
+    name = (
+        f"weekly_{summary.id}_{stamp}_{settings.tts_voice}"
+        f"_{mode}_v{_SPEECH_CACHE_VERSION}.{ext}"
+    )
     return Path(settings.audio_cache_dir) / name
 
 

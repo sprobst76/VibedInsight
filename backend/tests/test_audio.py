@@ -55,6 +55,9 @@ def test_normalize_for_speech():
     assert "und so weiter" in out
     assert "künstliche Intelligenz" in out
     assert "den Artikel" in out  # markdown link label kept
+    # Mispronounced name respelled.
+    assert "Kload" in audio.normalize_for_speech("Eine Antwort von Claude.")
+    assert "Claude" not in audio.normalize_for_speech("Antwort von claude heute.")
     # Leading list markers stripped.
     assert not any(line.lstrip().startswith(("-", "1.")) for line in out.splitlines())
 
