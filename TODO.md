@@ -219,7 +219,8 @@ Priorisiert nach Wert/Aufwand — Grundlage: pgvector + Embeddings sind jetzt im
    gesprochenes Audio (Piper TTS, lokal, ~30× Echtzeit auf CPU gemessen).
    - [x] **MVP v0.6.0**: `GET /audio/weekly/{id}` (Digest→MP3, gecacht),
      `/audio/status`, `POST /admin/audio/benchmark`; TTS-Service + Tests.
-   - [ ] Docker-Image auf VPS deployen + `/admin/audio/benchmark` dort messen.
+   - [x] Docker-Image auf VPS deployt (v0.6.0) + Benchmark: **~9× Echtzeit**
+     (RTF 0,11) on-VPS; `/audio/weekly/3` → 200 audio/mpeg 341 KB, Cache-Hit ok.
    - [ ] App: Play-Button + Player im weekly_screen.
    - [ ] „Mehr dazu" → RAG-Chat mit den Digest-Quellen (Alleinstellungsmerkmal
      ggü. NotebookLM: Audio als Einstieg ins eigene Archiv, kein Dead-End).

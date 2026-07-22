@@ -21,15 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   auf dem VPS ausführbar, ohne SSH.
 
 ### Performance
-- Piper-Spike (P13.1): **~59 s deutsche Sprache in ~2 s** synthetisiert
-  (RTF ~0,03, ~30× Echtzeit), auf 4 Kerne gedrosselt gemessen. TTS ist damit
-  **nicht** der Flaschenhals — anders als die RAG-Prompt-Eval. Synthese läuft
-  komfortabel auf dem CPU-VPS und wird gecacht.
+- Lokaler Spike (P13.1): ~59 s Sprache in ~2 s (RTF ~0,03, ~30× Echtzeit).
+- **On-VPS gemessen** (P13.3, 4 Kerne/7,6 GB, CPU-only): **RTF ~0,11 =
+  ~9× Echtzeit** steady state (~5× inkl. einmaligem Modell-Laden). Ein
+  4-Minuten-Digest wäre damit in ~26 s synthetisiert — und nur einmal, danach
+  Disk-Cache. TTS ist **nicht** der Flaschenhals (anders als die RAG-Prompt-Eval
+  mit ~80 s). End-to-End verifiziert: `/audio/weekly/3` → 200 audio/mpeg 341 KB.
 
 ### Notes
 - **Backend-only Vorschau.** App-Playback (Play-Button im weekly_screen),
   „Mehr dazu"→RAG-Chat-Drilldown und optionaler Podcast-Skript-Generator sind
-  die nächsten Schnitte (P13.3–13.6). Die App-Version bleibt bis dahin bei
+  die nächsten Schnitte (P13.4–13.6). Die App-Version bleibt bis dahin bei
   0.5.3 (kein Play-Upload nötig).
 - Docker-Image wächst ~300 MB (onnxruntime + ffmpeg + Voice) — bewusst
   akzeptiert für die Self-hosted-Single-User-App.
