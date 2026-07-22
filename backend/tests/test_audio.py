@@ -6,11 +6,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 
+from app.config import settings
 from app.database import async_session_maker
 from app.dependencies import get_or_create_owner
 from app.main import app
 from app.models.content import WeeklySummary
-from app.routers.audio import build_digest_script
+from app.routers import audio as audio_router
+from app.routers.audio import _build_spoken_script, build_digest_script
 from app.services import audio
 from app.timeutils import utcnow
 
@@ -36,8 +38,36 @@ def test_build_digest_script_composes_all_parts():
     assert "Willkommen zu deinem Wochenrückblick." in script
     assert "Kurzfassung der Woche." in script
     assert "Ausführlicher Text." in script
-    assert "1. Erste Erkenntnis" in script
-    assert "2. Zweite Erkenntnis" in script
+    assert "Erste Erkenntnis" in script
+    assert "Zweite Erkenntnis" in script
+
+
+def test_normalize_for_speech():
+    raw = (
+        "- Schau dir https://example.com/foo an, z. B. **jetzt**.\n"
+        "1. Erste Sache usw.\n"
+        "Siehe [den Artikel](https://x.y) für AI."
+    )
+    out = audio.normalize_for_speech(raw)
+    assert "http" not in out
+    assert "*" not in out
+    assert "zum Beispiel" in out
+    assert "und so weiter" in out
+    assert "künstliche Intelligenz" in out
+    assert "den Artikel" in out  # markdown link label kept
+    # Leading list markers stripped.
+    assert not any(line.lstrip().startswith(("-", "1.")) for line in out.splitlines())
+
+
+async def test_build_spoken_script_falls_back_when_llm_fails(monkeypatch):
+    async def boom(_digest):
+        raise RuntimeError("ollama down")
+
+    monkeypatch.setattr(audio_router, "generate_podcast_script", boom)
+    monkeypatch.setattr(settings, "audio_podcast_script", True)
+    s = WeeklySummary(tldr="Kurzfassung.", summary="Text.")
+    script = await _build_spoken_script(s)
+    assert "Willkommen zu deinem Wochenrückblick." in script  # plain-digest fallback
 
 
 def test_build_digest_script_handles_empty_fields():
@@ -67,7 +97,9 @@ def test_synthesize_wav_produces_riff():
 
 
 @requires_tts
-async def test_weekly_audio_returns_audio(client):
+async def test_weekly_audio_returns_audio(client, monkeypatch):
+    # Read the plain digest (no LLM) so the test needs no Ollama.
+    monkeypatch.setattr(settings, "audio_podcast_script", False)
     async with async_session_maker() as db:
         owner = await get_or_create_owner(db)
         summary = WeeklySummary(

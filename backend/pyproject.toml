@@ -1,6 +1,6 @@
 [project]
 name = "vibedinsight-backend"
-version = "0.6.0"
+version = "0.6.3"
 description = "Personal knowledge platform - Backend API"
 requires-python = ">=3.11"
 dependencies = [

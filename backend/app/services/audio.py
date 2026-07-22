@@ -17,6 +17,7 @@ the audio endpoints degrade to 503 instead of crashing.
 
 import io
 import logging
+import re
 import shutil
 import subprocess
 import time
@@ -27,6 +28,44 @@ from pathlib import Path
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Abbreviations the small TTS voice reads letter-by-letter or wrong — expanded
+# before synthesis so they are spoken as words.
+_ABBREVIATIONS = {
+    r"\bz\.\s?B\.": "zum Beispiel",
+    r"\bu\.\s?a\.": "unter anderem",
+    r"\bd\.\s?h\.": "das heißt",
+    r"\bu\.\s?U\.": "unter Umständen",
+    r"\bbzw\.": "beziehungsweise",
+    r"\busw\.": "und so weiter",
+    r"\betc\.": "und so weiter",
+    r"\bca\.": "circa",
+    r"\bNr\.": "Nummer",
+    r"\bAI\b": "künstliche Intelligenz",
+}
+
+
+def normalize_for_speech(text: str) -> str:
+    """Clean text so the TTS voice reads it naturally.
+
+    Strips URLs and markdown, drops list markers, and expands common
+    abbreviations. Applied to whatever text goes to synthesis (LLM podcast
+    script or the plain digest fallback).
+    """
+    # Strip URLs (spoken URLs are noise).
+    text = re.sub(r"https?://\S+|\bwww\.\S+", "", text)
+    # Remove markdown emphasis / code / heading markers.
+    text = re.sub(r"[*_`#>]+", "", text)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)  # [label](url) -> label
+    # Drop leading list markers ("- ", "* ", "1. ") per line.
+    text = re.sub(r"(?m)^\s*(?:[-*•]|\d+[.)])\s+", "", text)
+    # Expand abbreviations.
+    for pattern, repl in _ABBREVIATIONS.items():
+        text = re.sub(pattern, repl, text)
+    # Collapse whitespace but keep sentence breaks as newlines.
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{2,}", "\n", text)
+    return text.strip()
 
 
 def _voice_paths() -> tuple[Path, Path]:

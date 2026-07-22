@@ -5,6 +5,24 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-07-22 (Backend)
+
+### Changed — Audio-Digest: gesprochenes Skript statt Vorlesen (P13.6)
+- Der Digest wird vor der Synthese per LLM (`qwen2.5`) in ein **Sprech-Skript**
+  umgeschrieben (`prompts/podcast_script.txt`, `generate_podcast_script`):
+  kurze gesprochene Sätze, keine Listen/Nummerierungen, Abkürzungen
+  ausgeschrieben, englische Fachbegriffe vermieden. Fällt bei LLM-Fehler auf das
+  wörtliche Vorlesen zurück. Abschaltbar via `audio_podcast_script=false`.
+- **`normalize_for_speech`**: entfernt URLs/Markdown/Listen-Marker und schreibt
+  gängige Abkürzungen aus (`z. B.` → „zum Beispiel", `AI` → „künstliche
+  Intelligenz" …) — behebt die schlimmsten Aussprache-Patzer der kleinen Stimme.
+- Cache-Key enthält jetzt den Skript-Modus (`pod`/`plain`), damit ein
+  Moduswechsel keine veraltete Audio ausliefert. Piper-Synthese läuft nun in
+  einem Thread (blockiert den Event-Loop nicht mehr).
+- _Grenze:_ Die Qualität hängt am kleinen CPU-Modell (`qwen2.5:3b` auf dem VPS)
+  — deutlich gesprochener als vorher, aber Deutsch/Fachbegriffe bleiben nicht
+  perfekt. Besseres Modell = mehr VPS-RAM.
+
 ## [0.6.2] - 2026-07-22
 
 ### Added — Audio-Digest Drill-down (P13.5)

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     tts_voices_dir: str = "/app/voices"
     audio_cache_dir: str = "/app/data/audio"
     audio_format: str = "mp3"
+    # Rewrite the digest into a spoken-word script via the LLM before TTS
+    # (P13.6). Falls back to reading the plain digest if the LLM call fails.
+    audio_podcast_script: bool = True
+    audio_script_num_predict: int = 600  # max tokens for the spoken script
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

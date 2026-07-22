@@ -174,6 +174,21 @@ async def generate_summary(text: str) -> str:
     return await _ollama_chat_with_retry([{"role": "user", "content": prompt}])
 
 
+async def generate_podcast_script(digest: str) -> str:
+    """
+    Turn a weekly digest into a spoken-word script (Audio-Digest / P13.6).
+
+    Rewrites read-optimized text into something meant for the ear: short spoken
+    sentences, no list markers, expanded abbreviations, English jargon avoided —
+    which also sidesteps the small TTS voice's worst mispronunciations.
+    """
+    prompt = load_prompt("podcast_script").format(digest=digest[:6000])
+    return await _ollama_chat_with_retry(
+        [{"role": "user", "content": prompt}],
+        options={"num_predict": settings.audio_script_num_predict},
+    )
+
+
 def normalize_topic(raw: str) -> str | None:
     """Normalize a topic name: lowercase, trimmed, no markup, sane length."""
     topic = raw.strip().lower().replace("\n", " ").replace("_", " ")
