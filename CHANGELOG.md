@@ -5,6 +5,17 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-07-22
+
+### Added — Audio-Digest Drill-down (P13.5)
+- **„Mehr dazu — im Archiv nachfragen"** unter dem Wochen-Digest: öffnet den
+  RAG-Chat mit einer aus dem Digest abgeleiteten Frage (Top-Themen der Woche,
+  Fallback TL;DR) und **schickt sie automatisch** ab. Das ist das
+  Alleinstellungsmerkmal gegenüber NotebookLM: Der Digest ist kein Dead-End,
+  sondern der Einstieg ins eigene, durchsuchbare Archiv — mit antippbaren
+  Quellen aus der RAG-Antwort.
+- `ChatScreen(initialQuestion:)` + Route `/chat?q=…` (auto-send beim Öffnen).
+
 ## [0.6.1] - 2026-07-22
 
 ### Fixed

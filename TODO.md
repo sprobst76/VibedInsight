@@ -224,8 +224,8 @@ Priorisiert nach Wert/Aufwand — Grundlage: pgvector + Embeddings sind jetzt im
    - [x] App: Play-Button + Player im weekly_screen (just_audio, v0.6.0+24);
      analyze sauber, 105 Tests grün, APK baut. UAT: On-Device-Audibilität nach
      Play-Release.
-   - [ ] „Mehr dazu" → RAG-Chat mit den Digest-Quellen (Alleinstellungsmerkmal
-     ggü. NotebookLM: Audio als Einstieg ins eigene Archiv, kein Dead-End).
+   - [x] „Mehr dazu" → RAG-Chat mit aus dem Digest abgeleiteter Frage (v0.6.2,
+     `/chat?q=…` auto-send). Audio als Einstieg ins eigene Archiv, kein Dead-End.
    - [ ] Optional: qwen2.5 schreibt ein gesprochenes Podcast-Skript statt den
      Digest vorzulesen.
 

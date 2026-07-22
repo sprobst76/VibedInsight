@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../models/content_item.dart';
@@ -202,8 +203,12 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
               // can synthesize speech.
               if (ref.watch(audioAvailableProvider).value == true) ...[
                 WeeklyAudioPlayer(key: ValueKey(summary.id), summaryId: summary.id),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
               ],
+              // Drill-down into the RAG chat, grounded in this week's themes
+              // (Audio-Digest "Mehr dazu" — the archive-anchored follow-up).
+              _buildDrilldownButton(summary),
+              const SizedBox(height: 20),
               // TL;DR section - most prominent
               if (summary.hasTldr) ...[
                 _buildTldrSection(summary),
@@ -316,6 +321,34 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
           const SizedBox(width: 4),
           Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
+      ),
+    );
+  }
+
+  /// A question derived from the digest so the RAG chat retrieves the archive
+  /// content behind this week's themes.
+  String _digestChatQuestion(WeeklySummary summary) {
+    if (summary.topTopics.isNotEmpty) {
+      final topics = summary.topTopics.take(3).join(', ');
+      return 'Erzähl mir mehr zu den Themen dieser Woche: $topics. '
+          'Was habe ich dazu gespeichert?';
+    }
+    if (summary.hasTldr) {
+      return 'Erzähl mir mehr zu: ${summary.tldr}';
+    }
+    return 'Was war diese Woche in meinem Archiv besonders interessant?';
+  }
+
+  Widget _buildDrilldownButton(WeeklySummary summary) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.forum_outlined),
+        label: const Text('Mehr dazu — im Archiv nachfragen'),
+        onPressed: () {
+          final q = _digestChatQuestion(summary);
+          context.push('/chat?q=${Uri.encodeQueryComponent(q)}');
+        },
       ),
     );
   }

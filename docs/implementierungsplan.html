@@ -834,7 +834,7 @@ tr.done .tt{text-decoration:line-through}
         <div class="ptitle"><span class="pid">P13</span>Audio-Digest — höre deinen Wochenrückblick</div>
         <div class="pmeta">
           <span class="value" style="--vc:#dc2626">Wert: hoch</span>
-          <span class="prog">4/6 erledigt</span>
+          <span class="prog">5/6 erledigt</span>
         </div>
       </div>
       <p class="goal">Persönliches NotebookLM-Pendant: den vorhandenen Weekly-Digest (und später Topic-Cluster) als gesprochenes Audio ausgeben — mit dem Alleinstellungsmerkmal, dass jede Episode im eigenen Archiv verankert ist und per Tap zu &#x27;mehr dazu&#x27; in den RAG-Chat führt (was NotebookLM strukturell nicht kann). TTS läuft lokal via Piper — auf 4 Kernen ~30x Echtzeit gemessen, also kein Flaschenhals.</p>
@@ -873,13 +873,13 @@ tr.done .tt{text-decoration:line-through}
       <td class="c-dep">13.3</td>
       <td class="c-verify">flutter analyze sauber; 105 Tests grün; Debug-APK baut mit nativer just_audio. Offen (UAT): On-Device-Audibilität nach Play-Release (Debug-Signatur ≠ Play).</td>
     </tr><tr class="">
-      <td class="c-id"><span class="st open">○</span> 13.5</td>
+      <td class="c-id"><span class="st ok">✓</span> 13.5</td>
       <td class="c-task"><div class="tt">Drill-down: &#x27;Mehr dazu&#x27; öffnet RAG-Chat mit Digest-Quellen</div>
-          <div class="reason">Das eigentliche Alleinstellungsmerkmal gegenüber NotebookLM: Audio ist kein Dead-End, sondern Einstieg ins eigene Archiv.</div></td>
+          <div class="reason">Button „Mehr dazu — im Archiv nachfragen" unter dem Digest → /chat?q=… mit aus Top-Themen abgeleiteter Frage, auto-gesendet. RAG liefert antippbare Quellen (P2). Alleinstellungsmerkmal ggü. NotebookLM.</div></td>
       <td class="c-model"><span class="badge m-sonnet">Sonnet 5</span></td>
-      <td class="c-scope"><code>app: Verknüpfung weekly-&gt;chat mit vorbelegter Frage/Quellen; ggf. backend Quellen-IDs am Digest</code></td>
+      <td class="c-scope"><code>app: weekly_screen.dart (Button+Frage), chat_screen.dart (initialQuestion), main.dart (/chat?q=), v0.6.2+26</code></td>
       <td class="c-dep">13.4, P2</td>
-      <td class="c-verify">Tap unter Episode öffnet Chat, thematisch vorbelegt; Quelle antippbar</td>
+      <td class="c-verify">analyze sauber; 105 Tests grün. UAT: Tap öffnet Chat, Frage auto-gesendet, Quelle antippbar (on-device nach Release).</td>
     </tr><tr class="">
       <td class="c-id"><span class="st open">○</span> 13.6</td>
       <td class="c-task"><div class="tt">Podcast-Skript statt Vorlese-Digest (optional, Ausbau)</div>

@@ -82,7 +82,12 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/chat',
-      builder: (context, state) => const ChatScreen(),
+      builder: (context, state) {
+        // Optional ?q=… pre-fills and auto-sends a question (Audio-Digest
+        // drill-down "Mehr dazu" → grounded RAG answer).
+        final q = state.uri.queryParameters['q'];
+        return ChatScreen(initialQuestion: q);
+      },
     ),
     GoRoute(
       path: '/settings',

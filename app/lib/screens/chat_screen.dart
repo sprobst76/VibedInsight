@@ -8,7 +8,11 @@ import '../providers/chat_provider.dart';
 
 /// "Frag dein Archiv" — RAG chat over the user's saved content.
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, this.initialQuestion});
+
+  /// When set (e.g. via `/chat?q=…`), this question is sent automatically on
+  /// open — used by the Audio-Digest "Mehr dazu" drill-down.
+  final String? initialQuestion;
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -17,6 +21,20 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final q = widget.initialQuestion?.trim();
+    if (q != null && q.isNotEmpty) {
+      // Send after first frame so the notifier and UI are ready.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(chatProvider.notifier).send(q);
+        _scrollToBottomSoon();
+      });
+    }
+  }
 
   @override
   void dispose() {
