@@ -97,6 +97,14 @@ class WeeklySummaryListResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WeeklyGenerationResponse(BaseModel):
+    """Result of kicking off / polling an async weekly-digest generation."""
+
+    summary_id: int
+    status: str  # "processing" | "completed" | "failed" | "idle"
+    error: str | None = None
+
+
 # User item schemas (the shape the Flutter app works with)
 class UserItemResponse(BaseModel):
     """Combines ContentItem data with the user's flags. Integer ID."""

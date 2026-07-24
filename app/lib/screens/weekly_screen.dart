@@ -634,6 +634,16 @@ class _WeeklyScreenState extends ConsumerState<WeeklyScreen> {
                     : const Icon(Icons.auto_awesome),
                 label: Text(isGenerating ? 'Wird generiert...' : 'Zusammenfassung erstellen'),
               ),
+            if (isGenerating) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Das kann ein paar Minuten dauern — du kannst die App währenddessen weiter nutzen.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         ),
       ),

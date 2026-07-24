@@ -302,20 +302,27 @@ class ApiClient {
     return WeeklySummary.fromJson(response.data);
   }
 
-  Future<WeeklySummary> generateWeeklySummary(int id, {int? topicId}) async {
+  // Weekly digest generation is async (slow on the CPU VPS): these kick it off
+  // and return a status; poll getWeeklyGenerationStatus until it completes.
+  Future<WeeklyGenerationStatus> generateWeeklySummary(int id, {int? topicId}) async {
     final response = await _dio.post(
       '/weekly/$id/generate',
       queryParameters: topicId != null ? {'topic_id': topicId} : null,
     );
-    return WeeklySummary.fromJson(response.data);
+    return WeeklyGenerationStatus.fromJson(response.data);
   }
 
-  Future<WeeklySummary> generateCurrentWeekSummary({int? topicId}) async {
+  Future<WeeklyGenerationStatus> generateCurrentWeekSummary({int? topicId}) async {
     final response = await _dio.post(
       '/weekly/generate-current',
       queryParameters: topicId != null ? {'topic_id': topicId} : null,
     );
-    return WeeklySummary.fromJson(response.data);
+    return WeeklyGenerationStatus.fromJson(response.data);
+  }
+
+  Future<WeeklyGenerationStatus> getWeeklyGenerationStatus(int id) async {
+    final response = await _dio.get('/weekly/$id/generation-status');
+    return WeeklyGenerationStatus.fromJson(response.data);
   }
 
   // Audio-Digest (P13) — spoken weekly summary via Piper TTS

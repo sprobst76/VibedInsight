@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/api_client.dart';
 import '../models/content_item.dart';
 import '../services/notification_service.dart';
 import 'api_provider.dart';
@@ -85,13 +86,35 @@ class WeeklyNotifier extends StateNotifier<WeeklyState> {
     }
   }
 
+  /// Poll a kicked-off generation until it finishes, then load the summary.
+  /// Generation runs server-side and can take minutes on the CPU VPS.
+  Future<WeeklySummary> _awaitGeneration(ApiClient api, int summaryId) async {
+    const maxAttempts = 200; // ~20 min at 6s between polls
+    for (var i = 0; i < maxAttempts; i++) {
+      await Future.delayed(const Duration(seconds: 6));
+      final status = await api.getWeeklyGenerationStatus(summaryId);
+      if (status.isCompleted) {
+        return await api.getWeeklySummary(summaryId);
+      }
+      if (status.isFailed) {
+        throw Exception(status.error ?? 'Generierung fehlgeschlagen');
+      }
+      // "idle" means the task was lost (e.g. server restart) — treat as failure.
+      if (!status.isProcessing) {
+        throw Exception('Generierung wurde unterbrochen');
+      }
+    }
+    throw Exception('Zeitüberschreitung bei der Generierung');
+  }
+
   Future<void> generateCurrentWeekSummary({bool showNotification = true}) async {
     state = state.copyWith(isGenerating: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final summary = await apiClient.generateCurrentWeekSummary(
+      final started = await apiClient.generateCurrentWeekSummary(
         topicId: state.selectedTopicId,
       );
+      final summary = await _awaitGeneration(apiClient, started.summaryId);
       state = state.copyWith(currentWeek: summary, isGenerating: false);
 
       // Show notification if TL;DR is available
@@ -120,7 +143,8 @@ class WeeklyNotifier extends StateNotifier<WeeklyState> {
     state = state.copyWith(isGenerating: true, error: null);
     try {
       final apiClient = ref.read(apiClientProvider);
-      final summary = await apiClient.generateWeeklySummary(id);
+      final started = await apiClient.generateWeeklySummary(id);
+      final summary = await _awaitGeneration(apiClient, started.summaryId);
       state = state.copyWith(isGenerating: false);
       return summary;
     } catch (e) {

@@ -354,6 +354,31 @@ class TopicCluster {
   }
 }
 
+/// Status of an async weekly-digest generation (kick off + poll).
+class WeeklyGenerationStatus {
+  final int summaryId;
+  final String status; // processing | completed | failed | idle
+  final String? error;
+
+  const WeeklyGenerationStatus({
+    required this.summaryId,
+    required this.status,
+    this.error,
+  });
+
+  factory WeeklyGenerationStatus.fromJson(Map<String, dynamic> json) {
+    return WeeklyGenerationStatus(
+      summaryId: json['summary_id'] as int,
+      status: json['status'] as String,
+      error: json['error'] as String?,
+    );
+  }
+
+  bool get isProcessing => status == 'processing';
+  bool get isCompleted => status == 'completed';
+  bool get isFailed => status == 'failed';
+}
+
 class WeeklySummary {
   final int id;
   final DateTime weekStart;

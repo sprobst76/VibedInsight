@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "0.6.4"
+APP_VERSION = "0.6.5"
 
 
 @asynccontextmanager

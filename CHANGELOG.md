@@ -5,6 +5,22 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] - 2026-07-24
+
+### Changed — Asynchrone Weekly-Generierung
+- Die Digest-Generierung läuft jetzt als **Hintergrund-Task**; die Endpoints
+  kehren sofort zurück und die App **pollt den Status**. Behebt den Timeout bei
+  schweren Wochen (auf dem CPU-VPS dauerte ein Digest über ~26 Artikel ~9,5 min
+  und lief in den synchronen Request-Timeout).
+  - Backend: `POST /weekly/generate-current` und `POST /weekly/{id}/generate`
+    liefern `{summary_id, status:"processing"}`; neuer
+    `GET /weekly/{id}/generation-status` (`processing`/`completed`/`failed`/`idle`).
+    Status in-memory (Single-User); ein Neustart setzt `idle` (aus dem
+    gespeicherten Digest abgeleitet). Der Sonntags-Scheduler ist unberührt.
+  - App: `generateCurrentWeekSummary`/`generateSummary` stoßen an und pollen
+    alle 6 s bis `completed` (max. ~20 min), dann wird der Digest geladen.
+    Hinweis im Leer-Zustand: „Das kann ein paar Minuten dauern".
+
 ## [0.6.4] - 2026-07-22 (Backend)
 
 ### Fixed — Audio-Digest Aussprache

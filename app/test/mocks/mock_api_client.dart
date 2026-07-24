@@ -329,12 +329,12 @@ class MockApiClient extends ApiClient {
   }
 
   @override
-  Future<WeeklySummary> generateWeeklySummary(int id, {int? topicId}) async {
+  Future<WeeklyGenerationStatus> generateWeeklySummary(int id, {int? topicId}) async {
     methodCalls.add('generateWeeklySummary');
     lastCallParams['id'] = id;
 
     if (shouldFail) throw Exception(failureMessage);
 
-    return TestWeeklySummaries.summaryWithContent;
+    return const WeeklyGenerationStatus(summaryId: 1, status: 'completed');
   }
 }

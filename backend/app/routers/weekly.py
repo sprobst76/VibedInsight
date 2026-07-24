@@ -5,8 +5,10 @@ The generation logic lives in one helper (generate_summary_for) that both
 endpoints and the Sunday-evening scheduler (app.services.scheduler) share.
 """
 
+import asyncio
 import json
 import logging
+from collections import OrderedDict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,11 +16,16 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.database import get_db
+from app.database import async_session_maker, get_db
 from app.dependencies import get_current_user
 from app.models.content import ContentItem, ItemRelation, ProcessingStatus, WeeklySummary
 from app.models.user import User, UserItem
-from app.schemas import TopicCluster, WeeklySummaryListResponse, WeeklySummaryResponse
+from app.schemas import (
+    TopicCluster,
+    WeeklyGenerationResponse,
+    WeeklySummaryListResponse,
+    WeeklySummaryResponse,
+)
 from app.services.summarizer import generate_weekly_summary
 from app.timeutils import utcnow
 
@@ -29,6 +36,43 @@ router = APIRouter()
 
 class NoItemsError(Exception):
     """No completed, summarized items in the requested week."""
+
+
+# Digest generation is slow on the CPU VPS (minutes for a heavy week), so it
+# runs as a background task and the app polls for status. State is in-memory
+# (single-user); a process restart drops the task and its status together.
+_MAX_TRACKED = 32
+_generation_status: OrderedDict[int, dict] = OrderedDict()
+
+
+def _set_status(summary_id: int, status: str, error: str | None = None) -> None:
+    _generation_status[summary_id] = {"status": status, "error": error}
+    _generation_status.move_to_end(summary_id)
+    while len(_generation_status) > _MAX_TRACKED:
+        _generation_status.popitem(last=False)
+
+
+async def _run_generation(summary_id: int, user_id: int, topic_id: int | None) -> None:
+    """Background worker: generate the digest in its own DB session."""
+    try:
+        async with async_session_maker() as db:
+            summary = await db.get(WeeklySummary, summary_id)
+            user = await db.get(User, user_id)
+            if summary is None or user is None:
+                raise NoItemsError("Summary or user no longer exists")
+            await generate_summary_for(summary, user, db, topic_id)
+        _set_status(summary_id, "completed")
+    except NoItemsError as e:
+        _set_status(summary_id, "failed", str(e))
+    except Exception as e:
+        logger.exception("Async weekly generation failed for summary %s", summary_id)
+        _set_status(summary_id, "failed", str(e))
+
+
+def _start_generation(summary_id: int, user_id: int, topic_id: int | None) -> None:
+    _set_status(summary_id, "processing")
+    task = asyncio.create_task(_run_generation(summary_id, user_id, topic_id))
+    task.add_done_callback(lambda t: t.exception())
 
 
 def get_week_bounds(date: datetime | None = None) -> tuple[datetime, datetime]:
@@ -194,15 +238,16 @@ async def get_current_week_summary(
     return _summary_to_response(summary)
 
 
-@router.post("/generate-current", response_model=WeeklySummaryResponse)
+@router.post("/generate-current", response_model=WeeklyGenerationResponse)
 async def generate_current_week_summary(
     topic_id: int | None = Query(None, description="Filter by topic ID"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create and generate summary for the current week in one call."""
+    """Kick off async generation of the current week's digest; poll for status."""
     summary = await get_or_create_week_summary(user, db)
-    return await _generate_or_http_error(summary, user, db, topic_id)
+    _start_generation(summary.id, user.id, topic_id)
+    return WeeklyGenerationResponse(summary_id=summary.id, status="processing")
 
 
 @router.get("/{summary_id}", response_model=WeeklySummaryResponse)
@@ -216,16 +261,35 @@ async def get_weekly_summary(
     return _summary_to_response(summary)
 
 
-@router.post("/{summary_id}/generate", response_model=WeeklySummaryResponse)
+@router.post("/{summary_id}/generate", response_model=WeeklyGenerationResponse)
 async def generate_summary(
     summary_id: int,
     topic_id: int | None = Query(None, description="Filter by topic ID"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Generate or regenerate a weekly summary using AI."""
+    """Kick off async (re)generation of a weekly digest; poll for status."""
     summary = await _get_owned_summary(summary_id, user, db)
-    return await _generate_or_http_error(summary, user, db, topic_id)
+    _start_generation(summary.id, user.id, topic_id)
+    return WeeklyGenerationResponse(summary_id=summary.id, status="processing")
+
+
+@router.get("/{summary_id}/generation-status", response_model=WeeklyGenerationResponse)
+async def generation_status(
+    summary_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Poll the state of an async digest generation."""
+    summary = await _get_owned_summary(summary_id, user, db)
+    tracked = _generation_status.get(summary_id)
+    if tracked:
+        return WeeklyGenerationResponse(
+            summary_id=summary_id, status=tracked["status"], error=tracked["error"]
+        )
+    # Nothing tracked (e.g. after a restart): infer from the stored digest.
+    status = "completed" if summary.summary else "idle"
+    return WeeklyGenerationResponse(summary_id=summary_id, status=status)
 
 
 async def _get_owned_summary(summary_id: int, user: User, db: AsyncSession) -> WeeklySummary:
@@ -238,20 +302,6 @@ async def _get_owned_summary(summary_id: int, user: User, db: AsyncSession) -> W
         raise HTTPException(status_code=403, detail="Access denied")
 
     return summary
-
-
-async def _generate_or_http_error(
-    summary: WeeklySummary, user: User, db: AsyncSession, topic_id: int | None
-) -> WeeklySummaryResponse:
-    try:
-        summary = await generate_summary_for(summary, user, db, topic_id)
-    except NoItemsError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.exception("Weekly summary generation failed")
-        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {e}")
-
-    return _summary_to_response(summary)
 
 
 def _summary_to_response(summary: WeeklySummary) -> WeeklySummaryResponse:
