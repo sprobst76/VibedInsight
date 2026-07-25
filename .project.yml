@@ -21,6 +21,19 @@ verified: false
 
 # Tech stack, detected statically from build files.
 stack: ["Kotlin/Android", "Python", "FastAPI", "SQLAlchemy", "Pydantic"]
+# Observed by hosts_scan.py — where this actually runs.
+runtime:
+  - host: homeserver
+    kind: docker-compose
+    compose_project: "vibedinsight-dev"
+    dir: "/home/spro/development/VibedInsight/backend"
+    containers: 2
+  - host: vps
+    kind: docker-compose
+    compose_project: "vibedinsight"
+    dir: "/srv/vibedinsight/backend"
+    containers: 2
+
 # analysis: no deep-dive report for this project
 
 
