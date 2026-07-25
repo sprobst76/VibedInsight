@@ -23,6 +23,6 @@ derived:
   status_from: git-activity
   goal_from: README.md
   next_from: none
-  last_commit_days_ago: 0
+  last_commit_days_ago: 5
   open_human_actions: 0
   conflict: null
