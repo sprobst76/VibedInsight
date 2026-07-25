@@ -1,0 +1,28 @@
+# Project descriptor for MyVibingManager.
+# Pre-filled from existing sources on 2026-07-25 — please correct and
+# then set `verified: true`. This file is the declared truth; scanners only read it.
+name: "VibedInsight"
+
+# active | paused | shipped | archived
+status: active
+
+# One sentence: what this project is for.
+goal: "A self-hosted personal knowledge platform for collecting, analyzing, and summarizing web content with AI."
+
+# One sentence: the next concrete step.
+next: ""
+
+# Where it runs: vercel | fly.io | docker | android | local | none | <url>
+deploy: unknown
+
+# Set to true once a human has checked the values above.
+verified: false
+
+# --- derived, for reference (regenerate with init_project_yml.py) ---
+derived:
+  status_from: git-activity
+  goal_from: README.md
+  next_from: none
+  last_commit_days_ago: 5
+  open_human_actions: 0
+  conflict: null
