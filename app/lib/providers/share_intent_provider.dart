@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale, WidgetsBinding;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+import '../l10n/app_localizations.dart';
 import '../services/notification_service.dart';
+import '../services/share_ingest.dart';
 import 'api_provider.dart';
 import 'items_provider.dart';
 
@@ -63,7 +66,11 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
       onError: (err) {
         debugPrint('ShareIntent stream error: $err');
         final notificationService = _ref.read(notificationServiceProvider);
-        notificationService.showProcessingFailed('Share Intent', err.toString());
+        notificationService.showShareStatus(
+          title: 'Share Intent',
+          body: err.toString(),
+          error: true,
+        );
       },
     );
   }
@@ -89,38 +96,61 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
 
   Future<void> _processUrlInBackground(String url, {bool closeAfter = false}) async {
     final notificationService = _ref.read(notificationServiceProvider);
-    final apiClient = _ref.read(apiClientProvider);
+    final repo = _ref.read(itemsRepositoryProvider);
+    final lang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    final l10n = lookupAppLocalizations(Locale(lang == 'de' ? 'de' : 'en'));
+    final domain = Uri.tryParse(url)?.host ?? url;
 
-    // Show "processing" notification
-    await notificationService.showProcessingStarted(url);
+    // Wait for the ingest (short timeout, queue fallback) BEFORE closing the
+    // app, otherwise the request may be lost once the activity is gone.
+    final outcome = await ingestSharedUrl(repo, url);
+    await _notify(notificationService, l10n, outcome, domain);
 
-    // Close app immediately if launched from share intent
-    // The processing continues in the background
-    if (closeAfter) {
-      // Small delay to ensure notification is shown
-      await Future.delayed(const Duration(milliseconds: 100));
-      SystemNavigator.pop();
-    }
-
-    try {
-      // Ingest the URL
-      final item = await apiClient.ingestUrl(url);
-
-      // Update items list if provider is active
+    if (outcome.item != null) {
       try {
-        _ref.read(itemsProvider.notifier).updateItem(item);
+        _ref.read(itemsProvider.notifier).updateItem(outcome.item!);
       } catch (_) {
         // Provider might not be active yet
       }
+    }
 
-      // Show success notification
-      await notificationService.showProcessingComplete(
-        title: item.displayTitle,
-        itemId: item.id,
-      );
-    } catch (e) {
-      // Show error notification
-      await notificationService.showProcessingFailed(url, e.toString());
+    if (closeAfter) {
+      // Small delay to ensure the notification is shown
+      await Future.delayed(const Duration(milliseconds: 100));
+      SystemNavigator.pop();
+    }
+  }
+
+  Future<void> _notify(
+    NotificationService service,
+    AppLocalizations l10n,
+    ShareOutcome outcome,
+    String target,
+  ) {
+    switch (outcome.kind) {
+      case ShareOutcomeKind.saved:
+        return service.showShareStatus(
+          title: l10n.shareSavedTitle,
+          body: outcome.item?.displayTitle ?? target,
+          itemId: outcome.item?.id,
+        );
+      case ShareOutcomeKind.queued:
+        return service.showShareStatus(
+          title: l10n.shareQueuedTitle,
+          body: l10n.shareQueuedBody(target),
+        );
+      case ShareOutcomeKind.rejected:
+        return service.showShareStatus(
+          title: l10n.shareRejectedTitle,
+          body: outcome.message ?? target,
+          error: true,
+        );
+      case ShareOutcomeKind.failed:
+        return service.showShareStatus(
+          title: l10n.shareFailedTitle,
+          body: l10n.shareFailedBody(target),
+          error: true,
+        );
     }
   }
 

@@ -104,6 +104,54 @@ abstract class AppLocalizations {
   /// **'VibedInsight'**
   String get appTitle;
 
+  /// No description provided for @shareSavingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving to VibedInsight'**
+  String get shareSavingTitle;
+
+  /// No description provided for @shareSavedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved - processing'**
+  String get shareSavedTitle;
+
+  /// No description provided for @shareQueuedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for network'**
+  String get shareQueuedTitle;
+
+  /// No description provided for @shareQueuedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Will be sent later: {target}'**
+  String shareQueuedBody(String target);
+
+  /// No description provided for @shareRejectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not add'**
+  String get shareRejectedTitle;
+
+  /// No description provided for @shareFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save'**
+  String get shareFailedTitle;
+
+  /// No description provided for @shareFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save: {target}'**
+  String shareFailedBody(String target);
+
+  /// No description provided for @shareNoteTitleFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared note'**
+  String get shareNoteTitleFallback;
+
   /// Title of the main inbox screen
   ///
   /// In en, this message translates to:

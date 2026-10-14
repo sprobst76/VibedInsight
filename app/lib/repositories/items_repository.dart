@@ -250,10 +250,15 @@ class ItemsRepository {
     }
   }
 
-  /// Ingest URL with offline support
-  Future<IngestResult> ingestUrl(String url) async {
+  /// Ingest URL with offline support.
+  ///
+  /// With [timeout] the call is abandoned after that duration and treated like
+  /// a network error (queued). The request may still reach the server later;
+  /// the resulting duplicate is harmless (server dedups by url_hash).
+  Future<IngestResult> ingestUrl(String url, {Duration? timeout}) async {
     try {
-      final result = await _api.ingestUrl(url);
+      final call = _api.ingestUrl(url);
+      final result = timeout == null ? await call : await call.timeout(timeout);
       _updateOnlineStatus(true);
       return IngestResult(item: result, isPending: false);
     } on DioException catch (e) {
@@ -263,16 +268,22 @@ class ItemsRepository {
         return IngestResult(item: null, isPending: true);
       }
       rethrow;
+    } on TimeoutException {
+      _updateOnlineStatus(false);
+      await _db.addPendingAction('ingest_url', payload: {'url': url});
+      return IngestResult(item: null, isPending: true);
     }
   }
 
-  /// Ingest note with offline support
+  /// Ingest note with offline support (see [ingestUrl] for [timeout]).
   Future<IngestResult> ingestNote({
     required String title,
     required String text,
+    Duration? timeout,
   }) async {
     try {
-      final result = await _api.ingestText(title: title, text: text);
+      final call = _api.ingestText(title: title, text: text);
+      final result = timeout == null ? await call : await call.timeout(timeout);
       _updateOnlineStatus(true);
       return IngestResult(item: result, isPending: false);
     } on DioException catch (e) {
@@ -285,6 +296,13 @@ class ItemsRepository {
         return IngestResult(item: null, isPending: true);
       }
       rethrow;
+    } on TimeoutException {
+      _updateOnlineStatus(false);
+      await _db.addPendingAction('ingest_note', payload: {
+        'title': title,
+        'text': text,
+      });
+      return IngestResult(item: null, isPending: true);
     }
   }
 

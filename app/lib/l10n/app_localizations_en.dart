@@ -12,6 +12,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'VibedInsight';
 
   @override
+  String get shareSavingTitle => 'Saving to VibedInsight';
+
+  @override
+  String get shareSavedTitle => 'Saved - processing';
+
+  @override
+  String get shareQueuedTitle => 'Waiting for network';
+
+  @override
+  String shareQueuedBody(String target) {
+    return 'Will be sent later: $target';
+  }
+
+  @override
+  String get shareRejectedTitle => 'Could not add';
+
+  @override
+  String get shareFailedTitle => 'Failed to save';
+
+  @override
+  String shareFailedBody(String target) {
+    return 'Could not save: $target';
+  }
+
+  @override
+  String get shareNoteTitleFallback => 'Shared note';
+
+  @override
   String get inboxTitle => 'Inbox';
 
   @override

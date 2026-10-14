@@ -12,6 +12,34 @@ class AppLocalizationsDe extends AppLocalizations {
   String get appTitle => 'VibedInsight';
 
   @override
+  String get shareSavingTitle => 'Wird in VibedInsight gespeichert';
+
+  @override
+  String get shareSavedTitle => 'Gespeichert - wird verarbeitet';
+
+  @override
+  String get shareQueuedTitle => 'Wartet auf Netz';
+
+  @override
+  String shareQueuedBody(String target) {
+    return 'Wird später gesendet: $target';
+  }
+
+  @override
+  String get shareRejectedTitle => 'Konnte nicht hinzugefügt werden';
+
+  @override
+  String get shareFailedTitle => 'Speichern fehlgeschlagen';
+
+  @override
+  String shareFailedBody(String target) {
+    return 'Konnte nicht gespeichert werden: $target';
+  }
+
+  @override
+  String get shareNoteTitleFallback => 'Geteilte Notiz';
+
+  @override
   String get inboxTitle => 'Posteingang';
 
   @override

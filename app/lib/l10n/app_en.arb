@@ -4,6 +4,16 @@
   "@appTitle": {
     "description": "Application name shown as the window/app title"
   },
+  "shareSavingTitle": "Saving to VibedInsight",
+  "shareSavedTitle": "Saved - processing",
+  "shareQueuedTitle": "Waiting for network",
+  "shareQueuedBody": "Will be sent later: {target}",
+  "@shareQueuedBody": {"placeholders": {"target": {"type": "String"}}},
+  "shareRejectedTitle": "Could not add",
+  "shareFailedTitle": "Failed to save",
+  "shareFailedBody": "Could not save: {target}",
+  "@shareFailedBody": {"placeholders": {"target": {"type": "String"}}},
+  "shareNoteTitleFallback": "Shared note",
   "inboxTitle": "Inbox",
   "@inboxTitle": {
     "description": "Title of the main inbox screen"

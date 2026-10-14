@@ -85,41 +85,20 @@ class NotificationService {
     );
   }
 
-  /// Show a notification that URL processing has started
-  Future<void> showProcessingStarted(String url) async {
-    final domain = Uri.tryParse(url)?.host ?? url;
-
-    await _notifications.show(
-      _generateId(),
-      'Adding to VibedInsight',
-      'Processing: $domain',
-      _processingDetails(),
-    );
-  }
-
-  /// Show a notification that processing completed successfully
-  Future<void> showProcessingComplete({
+  /// Show a share-status notification. [error] uses the high-priority error
+  /// channel; [payload] (item id) makes a tap open the item.
+  Future<void> showShareStatus({
     required String title,
-    required int itemId,
+    required String body,
+    bool error = false,
+    int? itemId,
   }) async {
     await _notifications.show(
       _generateId(),
-      'Added to VibedInsight',
       title,
-      _successDetails(),
-      payload: itemId.toString(),
-    );
-  }
-
-  /// Show a notification that processing failed
-  Future<void> showProcessingFailed(String url, String? error) async {
-    final domain = Uri.tryParse(url)?.host ?? url;
-
-    await _notifications.show(
-      _generateId(),
-      'Failed to add',
-      'Could not process: $domain',
-      _errorDetails(),
+      body,
+      error ? _errorDetails() : _successDetails(),
+      payload: itemId?.toString(),
     );
   }
 
@@ -181,22 +160,6 @@ class NotificationService {
 
   Future<void> cancel(int id) async {
     await _notifications.cancel(id);
-  }
-
-  NotificationDetails _processingDetails() {
-    return const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'processing',
-        'Processing',
-        channelDescription: 'Content processing notifications',
-        importance: Importance.low,
-        priority: Priority.low,
-        ongoing: true,
-        autoCancel: false,
-        icon: '@mipmap/ic_launcher',
-      ),
-      iOS: DarwinNotificationDetails(),
-    );
   }
 
   NotificationDetails _successDetails() {
