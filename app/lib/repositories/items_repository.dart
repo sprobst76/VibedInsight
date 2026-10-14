@@ -15,6 +15,10 @@ import '../models/content_item.dart';
 /// - Offline fallback: Return cached data if API fails
 /// - Write-through: Actions are queued and synced when online
 class ItemsRepository {
+  /// Pending actions failing with non-network errors are dropped after this
+  /// many attempts.
+  static const maxPendingRetries = 5;
+
   final ApiClient _api;
   final AppDatabase _db;
 
@@ -339,12 +343,35 @@ class ItemsRepository {
         await _db.removePendingAction(action.id);
         synced++;
       } catch (e) {
-        await _db.incrementRetryCount(action.id);
-        failed++;
+        if (_isPermanentFailure(e)) {
+          // The server will never accept this: drop it instead of retrying.
+          await _db.removePendingAction(action.id);
+          failed++;
+        } else if (e is DioException && _isNetworkError(e)) {
+          // Still offline: keep this and the rest queued, don't burn retries.
+          failed++;
+          break;
+        } else {
+          failed++;
+          if (action.retryCount + 1 >= maxPendingRetries) {
+            await _db.removePendingAction(action.id);
+          } else {
+            await _db.incrementRetryCount(action.id);
+          }
+        }
       }
     }
 
     return SyncResult(synced: synced, failed: failed);
+  }
+
+  /// Client errors that a retry can never fix.
+  bool _isPermanentFailure(Object e) {
+    if (e is IngestRejectedException) return true;
+    if (e is DioException) {
+      return const {400, 404, 409, 422}.contains(e.response?.statusCode);
+    }
+    return false;
   }
 
   Future<void> _executePendingAction(PendingAction action) async {

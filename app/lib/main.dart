@@ -14,6 +14,7 @@ import 'screens/weekly_screen.dart';
 import 'screens/graph_screen.dart';
 import 'services/notification_service.dart';
 import 'providers/api_provider.dart';
+import 'providers/items_provider.dart';
 import 'providers/share_intent_provider.dart';
 import 'utils/notification_routes.dart';
 
@@ -96,11 +97,37 @@ final appRouter = GoRouter(
   ],
 );
 
-class VibedInsightApp extends ConsumerWidget {
+class VibedInsightApp extends ConsumerStatefulWidget {
   const VibedInsightApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VibedInsightApp> createState() => _VibedInsightAppState();
+}
+
+class _VibedInsightAppState extends ConsumerState<VibedInsightApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Flush the offline queue (e.g. items shared while offline) on resume.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(itemsProvider.notifier).syncOnResume();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Initialize share intent provider immediately on app start
     // This ensures we catch share intents even before any screen loads
     ref.read(shareIntentProvider);

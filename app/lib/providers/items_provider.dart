@@ -117,12 +117,16 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
       }
     });
 
+    // Flush actions queued earlier (e.g. by the share intent while offline).
+    // The online-status stream only fires on a change, so do it explicitly.
+    // (Runs after the initial load below.)
+
     // Initial load. A fresh notifier is created both on app start and
     // whenever the connection settings change (a new server URL / API key
     // rebuilds the API client, this repository, and this provider), so
     // loading here means changed settings take effect immediately — the
     // inbox no longer stays empty until an app restart.
-    loadItems(refresh: true);
+    loadItems(refresh: true).whenComplete(_syncPendingActions);
   }
 
   ContentItem? _findItem(int id) {
@@ -187,13 +191,21 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     super.dispose();
   }
 
+  /// Called when the app returns to the foreground.
+  Future<void> syncOnResume() async {
+    if (!mounted) return;
+    await _syncPendingActions();
+  }
+
   Future<void> _syncPendingActions() async {
     final result = await _repository.syncPendingActions();
+    if (!mounted) return;
     if (result.synced > 0) {
       // Refresh to get latest data after sync
       await loadItems(refresh: true);
     }
     final hasPending = await _repository.hasPendingActions();
+    if (!mounted) return;
     state = state.copyWith(hasPendingActions: hasPending);
   }
 
