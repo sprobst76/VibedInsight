@@ -103,6 +103,36 @@ Embedding). Do NOT `docker run` a fresh container by hand — that detaches it
 from the compose stack and drops the GPU/port/mount config.
 (Verified 2026-07-19: 0.13.5 → 0.32.1, pipeline intact.)
 
+## Ops: URL-Rehash (after v0.7)
+
+v0.7 changed URL normalisation (the query string is now part of the dedup
+hash), so existing `url_hash` values must be recomputed once. Manual step,
+never run at container start. Source: `backend/app/tools/rehash.py`.
+
+1. Back up first: `./deploy.sh backup`.
+2. Dry run (the default; writes nothing):
+   ```bash
+   docker compose exec api python -m app.tools.rehash --dry-run --report /tmp/rehash.csv
+   ```
+3. Check the report and the printed collision groups. Only after Stefan has
+   approved, apply (one transaction, nothing is deleted):
+   ```bash
+   docker compose exec api python -m app.tools.rehash --apply --report /tmp/rehash.csv
+   ```
+   In a collision group the oldest item stays canonical and keeps the new
+   hash. Younger duplicates are kept, not deleted, and get the marker hash
+   `<first 23 hex chars>:dup:<uuid>` (23 + 5 + 36 = 64 chars, the `url_hash`
+   column limit).
+4. A second run is idempotent: it finds every item already at its target hash
+   and changes nothing.
+
+**Known limits:**
+- URLs that were wrongly deduplicated under the old normalisation (e.g. a
+  second YouTube video with a different `v=` parameter) cannot be restored by
+  the rehash. They have to be shared again.
+- Until the rehash has run, a link that was already saved and is shared again
+  with a query string can be created as a duplicate.
+
 ## Prod deploy (unchanged)
 
 Push to `main` → GitHub Action → SSH to VPS → `deploy.sh update`.
