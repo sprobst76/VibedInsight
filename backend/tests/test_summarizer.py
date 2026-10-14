@@ -122,3 +122,97 @@ async def test_prompt_eval_count_near_limit_warns(monkeypatch):
     monkeypatch.setattr(summarizer, "_ollama_client", lambda: FakeClient(400))
     await summarizer.generate_summary("hello", context="item 7")
     assert not warnings
+
+
+def _weekly_fake_client(calls: list[dict]):
+    import json
+
+    from app.services import summarizer
+
+    class FakeClient:
+        async def chat(self, **kwargs):
+            calls.append(kwargs)
+            fmt = kwargs.get("format")
+            if fmt is summarizer.CLUSTER_SCHEMA:
+                content = json.dumps(
+                    {"theme": "T", "summary": "Zusammenfassung", "key_points": ["a"]}
+                )
+            else:
+                content = json.dumps(
+                    {
+                        "tldr": "t",
+                        "summary": "s",
+                        "key_insights": [],
+                        "top_topics": [],
+                        "topic_clusters": [],
+                        "connections": [],
+                    }
+                )
+            return {"message": {"content": content}}
+
+    return FakeClient()
+
+
+def _items_and_topics(n_per_topic=2, topics=("ki", "recht", "energie")):
+    items, by_item = [], {}
+    for t in topics:
+        for k in range(n_per_topic):
+            title = f"{t}-{k}"
+            items.append({"title": title, "summary": f"Text zu {t}"})
+            by_item[title] = [t]
+    return items, by_item
+
+
+async def test_weekly_mapreduce_three_clusters(monkeypatch):
+    from app.config import settings
+    from app.services import summarizer
+
+    monkeypatch.setattr(settings, "ollama_num_ctx", 4096)
+    monkeypatch.setattr(settings, "weekly_mapreduce_threshold", 4)
+    calls: list[dict] = []
+    monkeypatch.setattr(summarizer, "_ollama_client", lambda: _weekly_fake_client(calls))
+
+    items, by_item = _items_and_topics()
+    progress: list[tuple[str, int, int]] = []
+    result = await summarizer.generate_weekly_summary(
+        items, by_item, [], progress=lambda *a: progress.append(a)
+    )
+
+    map_calls = [c for c in calls if c["format"] is summarizer.CLUSTER_SCHEMA]
+    reduce_calls = [c for c in calls if c["format"] is summarizer.WEEKLY_SCHEMA]
+    assert len(map_calls) == 3
+    assert len(reduce_calls) == 1
+    assert all(c["options"]["num_ctx"] == 4096 for c in calls)
+    # reduce input is the cluster summaries, not the raw item texts
+    reduce_prompt = reduce_calls[0]["messages"][0]["content"]
+    assert "Zusammenfassung" in reduce_prompt and "(2 Artikel)" in reduce_prompt
+    assert progress == [("cluster", 1, 3), ("cluster", 2, 3), ("cluster", 3, 3), ("reduce", 3, 3)]
+    assert result["tldr"] == "t"
+
+
+async def test_weekly_below_threshold_is_single_call(monkeypatch):
+    from app.config import settings
+    from app.services import summarizer
+
+    monkeypatch.setattr(settings, "weekly_mapreduce_threshold", 10)
+    calls: list[dict] = []
+    monkeypatch.setattr(summarizer, "_ollama_client", lambda: _weekly_fake_client(calls))
+
+    items, by_item = _items_and_topics()
+    await summarizer.generate_weekly_summary(items, by_item, [])
+    assert len(calls) == 1
+    assert calls[0]["format"] is summarizer.WEEKLY_SCHEMA
+
+
+def test_group_into_clusters_caps_and_collects_rest():
+    from app.services.summarizer import OTHER_CLUSTER, group_into_clusters
+
+    topics = [f"t{i}" for i in range(9)]
+    items, by_item = _items_and_topics(n_per_topic=1, topics=topics)
+    items.append({"title": "ohne", "summary": "x"})
+    by_item["ohne"] = []
+
+    clusters = group_into_clusters(items, by_item, max_clusters=6)
+    assert len(clusters) == 6
+    assert clusters[-1][0] == OTHER_CLUSTER
+    assert sum(len(c[1]) for c in clusters) == len(items)

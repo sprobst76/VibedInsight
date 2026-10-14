@@ -132,3 +132,29 @@ def test_prioritize_user_items_order():
         "unrated-triage",
         "unrated-new",
     ]
+
+
+async def test_generation_status_reports_cluster_progress(client):
+    from app.routers.weekly import _progress_reporter, _set_status
+
+    async with async_session_maker() as db:
+        owner = await get_or_create_owner(db)
+        s = WeeklySummary(
+            user_id=owner.id,
+            week_start=utcnow(),
+            week_end=utcnow(),
+            items_count=0,
+            items_processed=0,
+        )
+        db.add(s)
+        await db.commit()
+        sid = s.id
+
+    _set_status(sid, "processing")
+    _progress_reporter(sid)("cluster", 2, 4)
+    body = (await client.get(f"/weekly/{sid}/generation-status")).json()
+    assert body["status"] == "processing"
+    assert body["progress"] == "cluster 2/4"
+    assert (body["cluster_current"], body["cluster_total"]) == (2, 4)
+    # existing fields unchanged
+    assert body["summary_id"] == sid and body["error"] is None
