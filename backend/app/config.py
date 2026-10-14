@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     # (enable if you want to save pages from your own LAN/homeserver)
     allow_private_urls: bool = False
 
+    # Outbound fetcher (services/fetcher.py): hard caps for every URL fetch.
+    # fetch_max_bytes applies to the *decoded* body (protects against gzip bombs).
+    fetch_max_bytes: int = 5 * 1024 * 1024
+    fetch_max_redirects: int = 5
+    fetch_connect_timeout: float = 10.0
+    fetch_read_timeout: float = 30.0  # per network read
+    fetch_total_timeout: float = 60.0  # wall clock for the whole fetch incl. redirects
+    fetch_user_agent: str = (
+        "Mozilla/5.0 (compatible; VibedInsight/1.0; +https://github.com/vibedinsight)"
+    )
+
     # Semantic similarity: minimum cosine similarity for a SIMILAR relation
     similarity_threshold: float = 0.75
 
