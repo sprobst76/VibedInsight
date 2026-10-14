@@ -103,6 +103,10 @@ class WeeklyGenerationResponse(BaseModel):
     summary_id: int
     status: str  # "processing" | "completed" | "failed" | "idle"
     error: str | None = None
+    # Additive progress info while status == "processing" (map-reduce digests only)
+    progress: str | None = None  # e.g. "cluster 2/4" or "reduce"
+    cluster_current: int | None = None
+    cluster_total: int | None = None
 
 
 # User item schemas (the shape the Flutter app works with)

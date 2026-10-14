@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,22 @@ WEEKLY_SCHEMA = {
     },
     "required": ["tldr", "summary", "key_insights", "top_topics", "topic_clusters", "connections"],
 }
+
+CLUSTER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "theme": {"type": "string"},
+        "summary": {"type": "string"},
+        "key_points": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    },
+    "required": ["theme", "summary", "key_points"],
+}
+
+OTHER_CLUSTER = "Sonstiges"
+CLUSTER_ANSWER_TOKENS = 700
+
+# progress(stage, current, total): stage is "cluster" (map) or "reduce".
+ProgressCallback = Callable[[str, int, int], None]
 
 
 def _ollama_client() -> ollama.AsyncClient:
@@ -358,10 +375,99 @@ def _build_relations_summary(relations: list[dict]) -> str:
     return "\n".join(lines) if lines else "Keine Verbindungen zwischen Artikeln erkannt."
 
 
+def group_into_clusters(
+    items_content: list[dict],
+    topics_by_item: dict[str, list[str]],
+    max_clusters: int,
+) -> list[tuple[str, list[dict]]]:
+    """Group items by their most common topic; the rest goes to "Sonstiges".
+
+    An item's top topic is the one shared with the most items this week (ties:
+    first listed). The largest max_clusters-1 groups survive; smaller groups and
+    topic-less items are merged into one catch-all cluster. Item order within a
+    cluster is preserved (callers pass items already sorted by priority).
+    """
+    counts: dict[str, int] = {}
+    for topics in topics_by_item.values():
+        for t in set(topics):
+            counts[t] = counts.get(t, 0) + 1
+
+    groups: dict[str, list[dict]] = {}
+    other: list[dict] = []
+    for item in items_content:
+        topics = topics_by_item.get(item.get("title", "Untitled"), [])
+        if not topics:
+            other.append(item)
+            continue
+        top = max(topics, key=lambda t: counts.get(t, 0))
+        groups.setdefault(top, []).append(item)
+
+    ranked = sorted(groups.items(), key=lambda kv: len(kv[1]), reverse=True)
+    keep = ranked[: max(max_clusters - 1, 1)]
+    for _, rest_items in ranked[len(keep) :]:
+        other.extend(rest_items)
+
+    clusters = list(keep)
+    if other:
+        clusters.append((OTHER_CLUSTER, other))
+    return clusters
+
+
+async def summarize_cluster(topic: str, items: list[dict]) -> dict[str, Any]:
+    """Map step: one LLM call that condenses a cluster of items."""
+    template = load_prompt("weekly_cluster")
+    content = "\n".join(
+        f"### {i.get('title', 'Untitled')}\n{i.get('summary', '')}\n" for i in items
+    )
+    content = fit_text(
+        content,
+        template_chars=len(template) + len(topic),
+        answer_tokens=CLUSTER_ANSWER_TOKENS,
+        context=f"weekly cluster {topic}",
+    )
+    raw = await _ollama_chat_with_retry(
+        [{"role": "user", "content": template.format(topic=topic, content=content)}],
+        format=CLUSTER_SCHEMA,
+        context=f"weekly cluster {topic}",
+    )
+    parsed = json.loads(raw)
+    points = parsed.get("key_points") or []
+    return {
+        "theme": str(parsed.get("theme") or topic).strip() or topic,
+        "summary": str(parsed.get("summary", "")).strip(),
+        "key_points": [p.strip() for p in points if isinstance(p, str) and p.strip()][:5],
+    }
+
+
+async def _map_reduce_content(
+    clusters: list[tuple[str, list[dict]]], progress: ProgressCallback | None
+) -> str:
+    """Run the map step for all clusters and render the reduce-step input."""
+    parts = []
+    total = len(clusters)
+    for idx, (topic, items) in enumerate(clusters, start=1):
+        if progress:
+            progress("cluster", idx, total)
+        try:
+            res = await summarize_cluster(topic, items)
+            body = res["summary"]
+            if res["key_points"]:
+                body += "\n" + "\n".join(f"- {p}" for p in res["key_points"])
+            heading = f"{res['theme']} ({len(items)} Artikel)"
+        except Exception:
+            # One failing cluster must not sink the whole digest: fall back to titles.
+            logger.exception("Weekly cluster %r failed; falling back to titles", topic)
+            body = "\n".join(f"- {i.get('title', 'Untitled')}" for i in items)
+            heading = f"{topic} ({len(items)} Artikel)"
+        parts.append(f"### {heading}\n{body}\n")
+    return "\n".join(parts)
+
+
 async def generate_weekly_summary(
     items_content: list[dict],
     topics_by_item: dict[str, list[str]] | None = None,
     relations: list[dict] | None = None,
+    progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """
     Generate a weekly summary from a list of content items.
@@ -369,12 +475,28 @@ async def generate_weekly_summary(
     Returns a dict with tldr, summary, key_insights, top_topics,
     topic_clusters and connections (all guaranteed present).
     """
-    content_parts = []
-    for item in items_content:
-        title = item.get("title", "Untitled")
-        summary = item.get("summary", "No summary")
-        content_parts.append(f"### {title}\n{summary}\n")
-    content = "\n".join(content_parts)
+    clusters: list[tuple[str, list[dict]]] = []
+    if len(items_content) > settings.weekly_mapreduce_threshold:
+        clusters = group_into_clusters(
+            items_content, topics_by_item or {}, settings.weekly_max_clusters
+        )
+
+    if len(clusters) >= 2:
+        logger.info(
+            "Weekly digest via map-reduce: %s items in %s clusters",
+            len(items_content),
+            len(clusters),
+        )
+        content = await _map_reduce_content(clusters, progress)
+        if progress:
+            progress("reduce", len(clusters), len(clusters))
+    else:
+        content_parts = []
+        for item in items_content:
+            title = item.get("title", "Untitled")
+            summary = item.get("summary", "No summary")
+            content_parts.append(f"### {title}\n{summary}\n")
+        content = "\n".join(content_parts)
 
     template = load_prompt("weekly_summary")
     topics_summary = _build_topics_summary(topics_by_item or {})

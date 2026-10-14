@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     weekly_auto_generate: bool = True
     # Max items fed into one digest, applied AFTER sorting by rating/triage/recency.
     weekly_max_items: int = 20
+    # Map-reduce digest: with more items than this, group by top topic and
+    # summarize each cluster separately (one LLM call each) before the final
+    # digest call. At or below it, a single call handles all items as before.
+    weekly_mapreduce_threshold: int = 10
+    weekly_max_clusters: int = 6  # incl. the "Sonstiges" catch-all
 
     # Serendipity resurfacing ("Wiederentdeckt"): surface an old, unread item.
     # Older items are weighted higher; only items at least this old qualify.

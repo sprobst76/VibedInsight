@@ -27,7 +27,7 @@ from app.schemas import (
     WeeklySummaryListResponse,
     WeeklySummaryResponse,
 )
-from app.services.summarizer import generate_weekly_summary
+from app.services.summarizer import ProgressCallback, generate_weekly_summary
 from app.timeutils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -46,11 +46,27 @@ _MAX_TRACKED = 32
 _generation_status: OrderedDict[int, dict] = OrderedDict()
 
 
-def _set_status(summary_id: int, status: str, error: str | None = None) -> None:
-    _generation_status[summary_id] = {"status": status, "error": error}
+def _set_status(
+    summary_id: int, status: str, error: str | None = None, progress: dict | None = None
+) -> None:
+    _generation_status[summary_id] = {"status": status, "error": error, **(progress or {})}
     _generation_status.move_to_end(summary_id)
     while len(_generation_status) > _MAX_TRACKED:
         _generation_status.popitem(last=False)
+
+
+def _progress_reporter(summary_id: int):
+    """Build a callback that publishes map-reduce progress into the status poll."""
+
+    def report(stage: str, current: int, total: int) -> None:
+        label = "reduce" if stage == "reduce" else f"cluster {current}/{total}"
+        _set_status(
+            summary_id,
+            "processing",
+            progress={"progress": label, "cluster_current": current, "cluster_total": total},
+        )
+
+    return report
 
 
 async def _run_generation(summary_id: int, user_id: int, topic_id: int | None) -> None:
@@ -61,7 +77,9 @@ async def _run_generation(summary_id: int, user_id: int, topic_id: int | None) -
             user = await db.get(User, user_id)
             if summary is None or user is None:
                 raise NoItemsError("Summary or user no longer exists")
-            await generate_summary_for(summary, user, db, topic_id)
+            await generate_summary_for(
+                summary, user, db, topic_id, progress=_progress_reporter(summary_id)
+            )
         _set_status(summary_id, "completed")
     except NoItemsError as e:
         _set_status(summary_id, "failed", str(e))
@@ -142,6 +160,7 @@ async def generate_summary_for(
     user: User,
     db: AsyncSession,
     topic_id: int | None = None,
+    progress: ProgressCallback | None = None,
 ) -> WeeklySummary:
     """
     Generate (or regenerate) the AI digest for a WeeklySummary row.
@@ -199,7 +218,9 @@ async def generate_summary_for(
         if rel.source_id in id_to_title and rel.target_id in id_to_title
     ]
 
-    result = await generate_weekly_summary(items_content, topics_by_item, relations)
+    result = await generate_weekly_summary(
+        items_content, topics_by_item, relations, progress=progress
+    )
 
     summary.tldr = result["tldr"]
     summary.summary = result["summary"]
@@ -301,7 +322,12 @@ async def generation_status(
     tracked = _generation_status.get(summary_id)
     if tracked:
         return WeeklyGenerationResponse(
-            summary_id=summary_id, status=tracked["status"], error=tracked["error"]
+            summary_id=summary_id,
+            status=tracked["status"],
+            error=tracked["error"],
+            progress=tracked.get("progress"),
+            cluster_current=tracked.get("cluster_current"),
+            cluster_total=tracked.get("cluster_total"),
         )
     # Nothing tracked (e.g. after a restart): infer from the stored digest.
     status = "completed" if summary.summary else "idle"
