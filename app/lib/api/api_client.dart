@@ -178,11 +178,35 @@ class ApiClient {
   }
 
   // Ingest
+  /// Submit a URL. Dio treats every 2xx as success, so both 202 (new item,
+  /// status `pending`, processed asynchronously) and 200 (already known item)
+  /// return the item. A 400 (e.g. private/internal URL) becomes an
+  /// [IngestRejectedException] carrying the server's `detail` text.
   Future<ContentItem> ingestUrl(String url) async {
-    final response = await _dio.post(
-      '/ingest/url',
-      data: {'url': url},
-    );
+    try {
+      final response = await _dio.post(
+        '/ingest/url',
+        data: {'url': url},
+      );
+      return ContentItem.fromJson(response.data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        final data = e.response?.data;
+        final detail = data is Map ? data['detail'] : null;
+        throw IngestRejectedException(
+          detail is String && detail.isNotEmpty
+              ? detail
+              : 'This URL cannot be added.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Re-queue a failed item (POST /items/{id}/retry -> 202, status pending).
+  /// 409 means the item is not in a failed state.
+  Future<ContentItem> retryItem(int id) async {
+    final response = await _dio.post('/items/$id/retry');
     return ContentItem.fromJson(response.data);
   }
 
@@ -365,4 +389,13 @@ class ApiClient {
     final response = await _dio.get('/items/graph/data');
     return GraphData.fromJson(response.data);
   }
+}
+
+/// Thrown when the server rejects an ingest request (HTTP 400).
+class IngestRejectedException implements Exception {
+  final String message;
+  IngestRejectedException(this.message);
+
+  @override
+  String toString() => message;
 }

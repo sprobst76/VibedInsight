@@ -259,7 +259,8 @@ class ItemCard extends StatelessWidget {
   }
 
   Widget _buildStatusIndicator() {
-    if (item.status == ProcessingStatus.processing) {
+    if (item.status == ProcessingStatus.processing ||
+        item.status == ProcessingStatus.pending) {
       return const SizedBox(
         width: 16,
         height: 16,

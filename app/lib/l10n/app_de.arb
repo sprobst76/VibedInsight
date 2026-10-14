@@ -11,5 +11,9 @@
   "chatHint": "Frag etwas…",
   "chatEmptySubtitle": "Stell eine Frage — ich antworte aus deinen gespeicherten Inhalten.",
   "chatSources": "Quellen",
-  "resurfacedTitle": "Wiederentdeckt"
+  "resurfacedTitle": "Wiederentdeckt",
+  "itemFailedTitle": "Verarbeitung fehlgeschlagen",
+  "itemFailedAttempts": "Versuche: {count}",
+  "itemRetryError": "Erneuter Versuch fehlgeschlagen: {error}",
+  "itemRetryStarted": "Erneut eingereiht"
 }

@@ -102,6 +102,10 @@ class ContentItem {
   final bool isArchived;
   final int rating;
 
+  /// Processing attempts so far and the last failure reason (failed items).
+  final int attempts;
+  final String? lastError;
+
   /// KI-Triage: similarity to the user's highly-rated items (0..1), or null.
   final double? triageScore;
   final DateTime createdAt;
@@ -122,6 +126,8 @@ class ContentItem {
     this.isRead = false,
     this.isArchived = false,
     this.rating = 0,
+    this.attempts = 0,
+    this.lastError,
     this.triageScore,
     required this.createdAt,
     this.updatedAt,
@@ -143,6 +149,8 @@ class ContentItem {
       isRead: json['is_read'] as bool? ?? false,
       isArchived: json['is_archived'] as bool? ?? false,
       rating: json['rating'] as int? ?? 0,
+      attempts: json['attempts'] as int? ?? 0,
+      lastError: json['last_error'] as String?,
       triageScore: (json['triage_score'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
@@ -158,11 +166,20 @@ class ContentItem {
     );
   }
 
-  ContentItem copyWith({bool? isFavorite, bool? isRead, bool? isArchived, int? rating}) {
+  ContentItem copyWith({
+    bool? isFavorite,
+    bool? isRead,
+    bool? isArchived,
+    int? rating,
+    ProcessingStatus? status,
+    int? attempts,
+    String? lastError,
+    bool clearLastError = false,
+  }) {
     return ContentItem(
       id: id,
       contentType: contentType,
-      status: status,
+      status: status ?? this.status,
       url: url,
       title: title,
       source: source,
@@ -172,6 +189,8 @@ class ContentItem {
       isRead: isRead ?? this.isRead,
       isArchived: isArchived ?? this.isArchived,
       rating: rating ?? this.rating,
+      attempts: attempts ?? this.attempts,
+      lastError: clearLastError ? null : (lastError ?? this.lastError),
       triageScore: triageScore,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -183,6 +202,7 @@ class ContentItem {
   String get displayTitle => title ?? url ?? 'Untitled';
 
   bool get isProcessing => status == ProcessingStatus.processing;
+  bool get isFailed => status == ProcessingStatus.failed;
   bool get isCompleted => status == ProcessingStatus.completed;
   bool get hasSummary => summary != null && summary!.isNotEmpty;
 }
@@ -262,6 +282,8 @@ class ContentItemWithRelations extends ContentItem {
     super.isRead,
     super.isArchived,
     super.rating,
+    super.attempts,
+    super.lastError,
     super.triageScore,
     required super.createdAt,
     super.updatedAt,
@@ -284,6 +306,8 @@ class ContentItemWithRelations extends ContentItem {
       isRead: json['is_read'] as bool? ?? false,
       isArchived: json['is_archived'] as bool? ?? false,
       rating: json['rating'] as int? ?? 0,
+      attempts: json['attempts'] as int? ?? 0,
+      lastError: json['last_error'] as String?,
       triageScore: (json['triage_score'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null

@@ -44,4 +44,20 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get resurfacedTitle => 'Wiederentdeckt';
+
+  @override
+  String get itemFailedTitle => 'Verarbeitung fehlgeschlagen';
+
+  @override
+  String itemFailedAttempts(int count) {
+    return 'Versuche: $count';
+  }
+
+  @override
+  String itemRetryError(String error) {
+    return 'Erneuter Versuch fehlgeschlagen: $error';
+  }
+
+  @override
+  String get itemRetryStarted => 'Erneut eingereiht';
 }

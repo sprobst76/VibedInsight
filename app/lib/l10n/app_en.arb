@@ -47,5 +47,31 @@
   "resurfacedTitle": "Rediscovered",
   "@resurfacedTitle": {
     "description": "Label of the banner that resurfaces an old, unread item"
+  },
+  "itemFailedTitle": "Processing failed",
+  "@itemFailedTitle": {
+    "description": "Heading of the error box on a failed item"
+  },
+  "itemFailedAttempts": "Attempts: {count}",
+  "@itemFailedAttempts": {
+    "description": "Number of processing attempts of a failed item",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "itemRetryError": "Retry failed: {error}",
+  "@itemRetryError": {
+    "description": "Snackbar when the retry request fails",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "itemRetryStarted": "Queued again",
+  "@itemRetryStarted": {
+    "description": "Snackbar after a failed item was re-queued"
   }
 }

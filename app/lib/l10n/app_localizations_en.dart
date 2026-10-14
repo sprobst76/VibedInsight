@@ -44,4 +44,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resurfacedTitle => 'Rediscovered';
+
+  @override
+  String get itemFailedTitle => 'Processing failed';
+
+  @override
+  String itemFailedAttempts(int count) {
+    return 'Attempts: $count';
+  }
+
+  @override
+  String itemRetryError(String error) {
+    return 'Retry failed: $error';
+  }
+
+  @override
+  String get itemRetryStarted => 'Queued again';
 }

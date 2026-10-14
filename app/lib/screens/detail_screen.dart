@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/content_item.dart';
 import '../providers/api_provider.dart';
 import '../providers/items_provider.dart';
@@ -22,6 +25,8 @@ class DetailScreen extends ConsumerStatefulWidget {
 class _DetailScreenState extends ConsumerState<DetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _pollTimer;
+  bool _retrying = false;
 
   @override
   void initState() {
@@ -31,8 +36,97 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Refresh the detail while the server is still working on the item
+  /// (pending/processing), stop once it completed or failed.
+  void _syncPolling(ContentItem item) {
+    final active = item.status == ProcessingStatus.pending ||
+        item.status == ProcessingStatus.processing;
+    if (active) {
+      _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        if (mounted) ref.invalidate(itemDetailProvider(widget.itemId));
+      });
+    } else {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    }
+  }
+
+  Future<void> _retry(ContentItem item) async {
+    if (_retrying) return;
+    setState(() => _retrying = true);
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(itemsProvider.notifier).retryItem(item.id);
+      ref.invalidate(itemDetailProvider(widget.itemId));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.itemRetryStarted)));
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.itemRetryError(e.toString()))),
+      );
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  Widget _buildFailedBox(ContentItem item) {
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.itemFailedTitle,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: scheme.onErrorContainer,
+            ),
+          ),
+          if (item.lastError != null && item.lastError!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            SelectableText(
+              item.lastError!,
+              style: TextStyle(color: scheme.onErrorContainer),
+            ),
+          ],
+          if (item.attempts > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              l10n.itemFailedAttempts(item.attempts),
+              style: TextStyle(
+                fontSize: 12,
+                color: scheme.onErrorContainer,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _retrying ? null : () => _retry(item),
+            icon: _retrying
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            label: Text(l10n.retry),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openUrl(String url) async {
@@ -129,6 +223,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
   }
 
   Widget _buildContent(ContentItemWithRelations item) {
+    _syncPolling(item);
     return Scaffold(
       appBar: AppBar(
         title: Text(item.displayTitle, maxLines: 1),
@@ -274,6 +369,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
             ],
           ),
 
+          if (item.isFailed) _buildFailedBox(item),
+
           // Source
           if (item.source != null) ...[
             const SizedBox(height: 8),
@@ -352,7 +449,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen>
   }
 
   Widget _buildSummaryTab(ContentItem item) {
-    if (item.status == ProcessingStatus.processing) {
+    if (item.status == ProcessingStatus.processing ||
+        item.status == ProcessingStatus.pending) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 
+import '../api/api_client.dart';
 import '../l10n/app_localizations.dart';
 import '../models/content_item.dart';
 import '../providers/api_provider.dart';
@@ -89,15 +90,26 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     );
 
     if (url != null && url.isNotEmpty) {
-      final item = await ref.read(itemsProvider.notifier).ingestUrl(url);
+      final ContentItem? item;
+      try {
+        item = await ref.read(itemsProvider.notifier).ingestUrl(url);
+      } on IngestRejectedException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+        return;
+      }
       if (mounted) {
-        if (item != null) {
+        final added = item;
+        if (added != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Added: ${item.displayTitle}'),
+              content: Text('Added: ${added.displayTitle}'),
               action: SnackBarAction(
                 label: 'View',
-                onPressed: () => context.push('/item/${item.id}'),
+                onPressed: () => context.push('/item/${added.id}'),
               ),
             ),
           );

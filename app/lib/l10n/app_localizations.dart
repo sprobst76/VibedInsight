@@ -169,6 +169,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rediscovered'**
   String get resurfacedTitle;
+
+  /// Heading of the error box on a failed item
+  ///
+  /// In en, this message translates to:
+  /// **'Processing failed'**
+  String get itemFailedTitle;
+
+  /// Number of processing attempts of a failed item
+  ///
+  /// In en, this message translates to:
+  /// **'Attempts: {count}'**
+  String itemFailedAttempts(int count);
+
+  /// Snackbar when the retry request fails
+  ///
+  /// In en, this message translates to:
+  /// **'Retry failed: {error}'**
+  String itemRetryError(String error);
+
+  /// Snackbar after a failed item was re-queued
+  ///
+  /// In en, this message translates to:
+  /// **'Queued again'**
+  String get itemRetryStarted;
 }
 
 class _AppLocalizationsDelegate

@@ -464,27 +464,41 @@ class ItemsNotifier extends StateNotifier<ItemsState> {
     }
   }
 
+  /// Throws [IngestRejectedException] if the server rejects the URL (400).
   Future<ContentItem?> ingestUrl(String url) async {
     try {
       final result = await _repository.ingestUrl(url);
       final hasPending = await _repository.hasPendingActions();
 
       if (result.item != null) {
+        final added = result.item!;
+        // A known URL (HTTP 200) returns the existing item: don't duplicate it.
         state = state.copyWith(
-          items: [result.item!, ...state.items],
+          items: [added, ...state.items.where((i) => i.id != added.id)],
           hasPendingActions: hasPending,
         );
-        return result.item;
+        _startPollingIfNeeded();
+        return added;
       } else if (result.isPending) {
         // Queued for later sync
         state = state.copyWith(hasPendingActions: true);
         return null;
       }
       return null;
+    } on IngestRejectedException {
+      rethrow;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
     }
+  }
+
+  /// Retry a failed item: the server re-queues it as `pending`; polling then
+  /// follows it until it completes or fails again.
+  Future<ContentItem> retryItem(int id) async {
+    final updated = await _apiClient.retryItem(id);
+    updateItem(updated);
+    return updated;
   }
 
   Future<ContentItem?> ingestNote(String title, String text) async {
