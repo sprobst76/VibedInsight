@@ -7,8 +7,9 @@ link, then schedules background processing (see app.services.processing).
 
 import logging
 import uuid
+from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,7 @@ from app.schemas import (
     TopicResponse,
     UserItemResponse,
 )
-from app.services.extractor import PrivateAddressError, extract_from_url
+from app.services.fetcher import FetchError, precheck_url
 from app.services.processing import schedule_processing
 from app.services.urlnorm import hash_url
 from app.timeutils import utcnow
@@ -101,36 +102,31 @@ async def _link_user_to_item(
 @router.post("/url", response_model=UserItemResponse)
 async def ingest_url(
     request: IngestURLRequest,
+    response: Response,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Ingest content from a URL (deduplicated via url_hash)."""
+    """
+    Ingest content from a URL (deduplicated via url_hash).
+
+    New URLs return 202 immediately with a PENDING item (title = URL); fetch,
+    extraction and AI processing run in the background and set FAILED +
+    last_error if the fetch fails. Already known URLs return 200 with the
+    existing item and trigger no new processing.
+    """
     url = str(request.url)
     url_hash = hash_url(url)
 
-    # Check if URL already exists
-    existing_result = await db.execute(select(ContentItem).where(ContentItem.url_hash == url_hash))
-    existing = existing_result.scalar_one_or_none()
-
-    if existing:
-        user_item_id, _ = await _link_user_to_item(user, existing.id, db)
-        await db.commit()
-        return await load_user_item_response(user_item_id, db)
-
-    # Extract content from URL
+    # Cheap, DNS-free rejection of obviously private targets before any item
+    # exists (the full DNS-pinned check still happens in the background fetch).
     try:
-        extracted = await extract_from_url(url)
-    except PrivateAddressError as e:
+        precheck_url(url)
+    except FetchError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to extract content: {e}")
 
-    if not extracted["text"]:
-        raise HTTPException(status_code=400, detail="Could not extract text from URL")
-
-    # INSERT .. ON CONFLICT DO NOTHING: a parallel identical request may have
-    # created the item while we were fetching; then we link to theirs instead
-    # of failing on the unique url_hash index.
+    # INSERT .. ON CONFLICT DO NOTHING: of two parallel identical requests only
+    # one creates the item; the other links to it instead of failing on the
+    # unique url_hash index.
     new_id = uuid.uuid4()
     inserted = await db.execute(
         pg_insert(ContentItem)
@@ -140,10 +136,10 @@ async def ingest_url(
             status=ProcessingStatus.PENDING,
             url=url,
             url_hash=url_hash,
-            title=extracted["title"],
-            source=extracted["source"],
-            raw_text=extracted["text"],
+            title=url[:500],
+            source=urlparse(url).netloc.replace("www.", "")[:255],
             ref_count=0,
+            attempts=0,
             created_at=utcnow(),
         )
         .on_conflict_do_nothing(index_elements=["url_hash"])
@@ -162,6 +158,7 @@ async def ingest_url(
 
     if created:
         schedule_processing(content_id)
+        response.status_code = 202
 
     return await load_user_item_response(user_item_id, db)
 

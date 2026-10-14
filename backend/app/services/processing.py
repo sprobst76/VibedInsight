@@ -12,6 +12,7 @@ import asyncio
 import logging
 import traceback
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -31,6 +32,7 @@ from app.models.content import (
 )
 from app.services.embeddings import generate_embedding_for_content
 from app.services.extractor import extract_from_url
+from app.services.fetcher import FetchError, PrivateAddressError
 from app.services.summarizer import extract_topics, generate_summary
 from app.timeutils import utcnow
 
@@ -51,8 +53,90 @@ def schedule_processing(item_id: uuid.UUID) -> None:
     logger.info(f"Scheduled background processing for item {item_id}")
 
 
+# Retry policy: backoff = RETRY_BASE * 2^attempts (attempts before this failure), capped.
+RETRY_BASE = timedelta(minutes=5)
+RETRY_MAX_BACKOFF = timedelta(hours=12)
+MAX_ERROR_LEN = 300
+
+
+def retry_backoff(attempts: int) -> timedelta:
+    """Delay before the next automatic retry, given the attempts made so far."""
+    return min(RETRY_BASE * (2 ** max(attempts, 0)), RETRY_MAX_BACKOFF)
+
+
+def safe_error_message(exc: BaseException) -> str:
+    """Short, user-presentable error text without internals (no tracebacks/paths)."""
+    if isinstance(exc, FetchError):
+        text = str(exc)  # fetcher messages are written for users
+    else:
+        text = f"Processing failed ({type(exc).__name__})"
+    return text[:MAX_ERROR_LEN]
+
+
+async def _record_failure(
+    db: AsyncSession, item_id: uuid.UUID, error: str, *, retryable: bool = True
+) -> None:
+    """Mark an item FAILED: attempts+1, last_error, and when to retry next."""
+    result = await db.execute(select(ContentItem).where(ContentItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if item is None:
+        return
+    item.status = ProcessingStatus.FAILED
+    item.last_error = error[:MAX_ERROR_LEN]
+    item.next_retry_at = (
+        datetime.now(UTC) + retry_backoff(item.attempts or 0) if retryable else None
+    )
+    item.attempts = (item.attempts or 0) + 1
+    await db.commit()
+
+
+async def _ensure_raw_text(item_id: uuid.UUID) -> bool:
+    """
+    Make sure the item has text to process; fetches the URL if it has none yet
+    (asynchronous URL ingest creates items without text). Failures are recorded
+    on the item (FAILED + last_error + attempts) and return False.
+    """
+    async with async_session_maker() as db:
+        result = await db.execute(select(ContentItem).where(ContentItem.id == item_id))
+        item = result.scalar_one_or_none()
+        if item is None:
+            logger.warning(f"Item {item_id} not found")
+            return False
+        if item.raw_text:
+            return True
+        if not item.url:
+            await _record_failure(db, item_id, "No text to process", retryable=False)
+            return False
+
+        try:
+            extracted = await extract_from_url(item.url)
+        except Exception as e:
+            logger.warning(f"Item {item_id}: fetch/extract failed: {e}")
+            await db.rollback()
+            retryable = not isinstance(e, PrivateAddressError)
+            await _record_failure(db, item_id, safe_error_message(e), retryable=retryable)
+            return False
+
+        if not extracted["text"]:
+            await _record_failure(db, item_id, "Could not extract text from URL")
+            return False
+
+        item.raw_text = extracted["text"]
+        # Replace the provisional title (the URL) but never a user-edited one
+        if extracted["title"] and (not item.title or item.title == item.url):
+            item.title = extracted["title"][:500]
+        if extracted["source"]:
+            item.source = extracted["source"][:255]
+        await db.commit()
+        return True
+
+
 async def process_item(item_id: uuid.UUID) -> None:
-    """Process one item: summary, topics, embedding, relations."""
+    """Process one item: (fetch if needed), summary, topics, embedding, relations."""
+    # Fetching does not need an Ollama slot, so it happens before the semaphore
+    if not await _ensure_raw_text(item_id):
+        return
+
     async with _ollama_semaphore:
         async with async_session_maker() as db:
             query = (
@@ -79,6 +163,8 @@ async def process_item(item_id: uuid.UUID) -> None:
 
                 item.status = ProcessingStatus.COMPLETED
                 item.processed_at = utcnow()
+                item.last_error = None
+                item.next_retry_at = None
                 # raw_text is kept on purpose: reprocessing and future
                 # semantic features (RAG) need the original text.
                 await db.commit()
@@ -93,11 +179,7 @@ async def process_item(item_id: uuid.UUID) -> None:
                 logger.error(traceback.format_exc())
                 try:
                     await db.rollback()
-                    result = await db.execute(select(ContentItem).where(ContentItem.id == item_id))
-                    failed_item = result.scalar_one_or_none()
-                    if failed_item:
-                        failed_item.status = ProcessingStatus.FAILED
-                        await db.commit()
+                    await _record_failure(db, item_id, safe_error_message(e))
                 except Exception as inner_e:
                     logger.error(f"Failed to mark item {item_id} as FAILED: {inner_e}")
 
@@ -135,6 +217,9 @@ async def requeue_stuck_items() -> None:
     """
     Startup recovery: reschedule items that were PENDING/PROCESSING when the
     server stopped (background tasks don't survive restarts/deploys).
+
+    process_item fetches the URL itself when raw_text is missing, so URL items
+    created by the asynchronous ingest are picked up here as well.
     """
     async with async_session_maker() as db:
         result = await db.execute(
@@ -144,41 +229,21 @@ async def requeue_stuck_items() -> None:
         )
         stuck = result.scalars().all()
 
-        requeued = 0
+        to_schedule: list[uuid.UUID] = []
         for item in stuck:
-            if item.raw_text:
+            if item.raw_text or item.url:
                 item.status = ProcessingStatus.PENDING
-                requeued += 1
-            elif item.url:
-                # raw_text lost (e.g. crash after cleanup) — needs re-fetch
-                item.status = ProcessingStatus.PENDING
-                requeued += 1
+                to_schedule.append(item.id)
             else:
                 item.status = ProcessingStatus.FAILED
+                item.last_error = "No text to process"
         await db.commit()
 
-        for item in stuck:
-            if item.status == ProcessingStatus.PENDING:
-                if item.raw_text:
-                    schedule_processing(item.id)
-                else:
-                    task = asyncio.create_task(_refetch_and_process(item.id))
-                    _background_tasks.add(task)
-                    task.add_done_callback(_background_tasks.discard)
+    for item_id in to_schedule:
+        schedule_processing(item_id)
 
-        if stuck:
-            logger.info(f"Startup requeue: rescheduled {requeued} of {len(stuck)} stuck items")
-
-
-async def _refetch_and_process(item_id: uuid.UUID) -> None:
-    """Re-fetch a URL item that lost its raw_text, then process it."""
-    try:
-        async with async_session_maker() as db:
-            ok = await reprocess_item(item_id, db)
-            if not ok:
-                logger.warning(f"Startup requeue: could not re-fetch item {item_id}")
-    except Exception as e:
-        logger.error(f"Startup requeue failed for item {item_id}: {e}")
+    if stuck:
+        logger.info(f"Startup requeue: rescheduled {len(to_schedule)} of {len(stuck)} stuck items")
 
 
 async def _get_or_create_topic(name: str, db: AsyncSession) -> Topic:

@@ -201,6 +201,35 @@ def _validate_url(url: httpx.URL) -> None:
         raise InvalidURLError("Credentials in URLs are not allowed")
 
 
+def precheck_url(url: str) -> None:
+    """Cheap, DNS-free pre-screen run before an item is created.
+
+    Rejects invalid schemes, credentials, IP literals in blocked ranges and
+    obvious local hostnames. Hostnames that merely *resolve* to private
+    addresses are still caught by the full check inside `safe_fetch`.
+    """
+    parsed = httpx.URL(url)
+    _validate_url(parsed)
+    if settings.allow_private_urls:
+        return
+    host = parsed.host.rstrip(".").lower()
+    try:
+        literal: IPAddress | None = ipaddress.ip_address(host)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        if is_blocked_ip(literal):
+            raise PrivateAddressError(
+                f"URL points to non-public address {literal} "
+                "(set ALLOW_PRIVATE_URLS=true to allow)"
+            )
+        return
+    if host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
+        raise PrivateAddressError(
+            f"URL points to a local hostname {host} (set ALLOW_PRIVATE_URLS=true to allow)"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Pinned transport
 # ---------------------------------------------------------------------------
