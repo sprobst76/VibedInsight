@@ -100,6 +100,13 @@ async def _pull_missing_model() -> bool:
         return False
 
 
+def _with_ctx(options: dict | None) -> dict:
+    """Merge the configured context window into per-call Ollama options."""
+    merged = dict(options or {})
+    merged.setdefault("num_ctx", settings.ollama_num_ctx)
+    return merged
+
+
 async def _ollama_chat_with_retry(
     messages: list[dict],
     format: dict | None = None,
@@ -116,7 +123,7 @@ async def _ollama_chat_with_retry(
                     model=settings.ollama_model,
                     messages=messages,
                     format=format,
-                    options=options,
+                    options=_with_ctx(options),
                 ),
                 timeout=timeout,
             )
@@ -148,7 +155,7 @@ async def ollama_chat_stream(
         model=settings.ollama_model,
         messages=messages,
         stream=True,
-        options=options,
+        options=_with_ctx(options),
     )
     async for part in stream:
         try:

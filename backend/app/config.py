@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
+    # Context window passed as options.num_ctx to every chat/generate call.
+    # Ollama's own default (2048-4096) silently truncates long prompts.
+    ollama_num_ctx: int = 8192
     ollama_embedding_model: str = "mxbai-embed-large"  # 1024-dim, must match Vector(1024)
 
     # API
