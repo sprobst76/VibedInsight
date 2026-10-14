@@ -16,6 +16,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database import async_session_maker, get_db
 from app.dependencies import get_current_user
 from app.models.content import ContentItem, ItemRelation, ProcessingStatus, WeeklySummary
@@ -73,6 +74,18 @@ def _start_generation(summary_id: int, user_id: int, topic_id: int | None) -> No
     _set_status(summary_id, "processing")
     task = asyncio.create_task(_run_generation(summary_id, user_id, topic_id))
     task.add_done_callback(lambda t: t.exception())
+
+
+def prioritize_user_items(user_items: list[UserItem]) -> list[UserItem]:
+    """Order by rating desc (unrated last), triage_score desc (NULL last), newest first."""
+
+    def key(ui: UserItem) -> tuple:
+        rating = ui.rating or 0  # 0/NULL = unrated -> after every rated item
+        triage = ui.triage_score
+        created = ui.created_at.timestamp() if ui.created_at else 0.0
+        return (-rating, triage is None, -(triage or 0.0), -created)
+
+    return sorted(user_items, key=key)
 
 
 def get_week_bounds(date: datetime | None = None) -> tuple[datetime, datetime]:
@@ -148,12 +161,15 @@ async def generate_summary_for(
 
     items = [
         ui.content
-        for ui in user_items
+        for ui in prioritize_user_items(list(user_items))
         if ui.content.status == ProcessingStatus.COMPLETED and ui.content.summary
     ]
 
     if topic_id is not None:
         items = [i for i in items if any(t.id == topic_id for t in i.topics)]
+
+    # Cap only after prioritizing, so highly rated items always make it in.
+    items = items[: settings.weekly_max_items]
 
     if not items:
         raise NoItemsError(f"No completed items with summaries in week {summary.week_start.date()}")

@@ -57,6 +57,8 @@ class Settings(BaseSettings):
 
     # Auto-generate the weekly summary every Sunday evening (server time)
     weekly_auto_generate: bool = True
+    # Max items fed into one digest, applied AFTER sorting by rating/triage/recency.
+    weekly_max_items: int = 20
 
     # Serendipity resurfacing ("Wiederentdeckt"): surface an old, unread item.
     # Older items are weighted higher; only items at least this old qualify.

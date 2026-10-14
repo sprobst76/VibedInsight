@@ -100,3 +100,35 @@ async def test_generation_status_completed_when_summary_present(client):
 async def test_generation_status_404_for_missing(client):
     resp = await client.get("/weekly/999999/generation-status")
     assert resp.status_code == 404
+
+
+def test_prioritize_user_items_order():
+    from types import SimpleNamespace
+
+    from app.routers.weekly import prioritize_user_items
+
+    now = utcnow()
+
+    def ui(name, rating, triage, age_days):
+        created = now - timedelta(days=age_days)
+        return SimpleNamespace(name=name, rating=rating, triage_score=triage, created_at=created)
+
+    items = [
+        ui("unrated-new", 0, None, 0),
+        ui("r3-old", 3, 0.1, 5),
+        ui("r5-lowtriage", 5, 0.2, 3),
+        ui("r5-hightriage", 5, 0.9, 4),
+        ui("r5-notriage-new", 5, None, 0),
+        ui("unrated-triage", None, 0.8, 2),
+        ui("r3-new", 3, 0.1, 1),
+    ]
+    order = [i.name for i in prioritize_user_items(items)]
+    assert order == [
+        "r5-hightriage",
+        "r5-lowtriage",
+        "r5-notriage-new",
+        "r3-new",
+        "r3-old",
+        "unrated-triage",
+        "unrated-new",
+    ]

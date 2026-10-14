@@ -370,7 +370,7 @@ async def generate_weekly_summary(
     topic_clusters and connections (all guaranteed present).
     """
     content_parts = []
-    for item in items_content[:20]:
+    for item in items_content:
         title = item.get("title", "Untitled")
         summary = item.get("summary", "No summary")
         content_parts.append(f"### {title}\n{summary}\n")
