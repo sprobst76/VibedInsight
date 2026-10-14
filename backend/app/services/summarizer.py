@@ -100,6 +100,59 @@ async def _pull_missing_model() -> bool:
         return False
 
 
+# Rough token estimate used to budget prompts before Ollama silently truncates.
+CHARS_PER_TOKEN = 3.5
+# Tokens reserved for the model's answer when budgeting the input text.
+SUMMARY_ANSWER_TOKENS = 600
+TOPICS_ANSWER_TOKENS = 200
+WEEKLY_ANSWER_TOKENS = 1500
+# Warn when the prompt fills this share of the context window.
+TRUNCATION_WARN_RATIO = 0.95
+
+
+def fit_text(
+    text: str,
+    *,
+    template_chars: int = 0,
+    answer_tokens: int = 600,
+    context: str = "",
+) -> str:
+    """Cut `text` so prompt + answer fit into num_ctx (estimate: 3.5 chars/token).
+
+    template_chars is the size of the surrounding prompt text; answer_tokens is
+    reserved for the response. Logs a warning when text had to be cut.
+    """
+    prompt_tokens = settings.ollama_num_ctx - answer_tokens - template_chars / CHARS_PER_TOKEN
+    max_chars = max(int(prompt_tokens * CHARS_PER_TOKEN), 200)
+    if len(text) <= max_chars:
+        return text
+    logger.warning(
+        "Input too long for num_ctx=%s (%s): cutting %s -> %s chars",
+        settings.ollama_num_ctx,
+        context or "n/a",
+        len(text),
+        max_chars,
+    )
+    return text[:max_chars]
+
+
+def _check_truncation(response: Any, context: str) -> None:
+    """Warn if the prompt (almost) filled the context window."""
+    try:
+        used = response["prompt_eval_count"]
+    except (KeyError, TypeError):
+        return
+    if not isinstance(used, int):
+        return
+    if used >= TRUNCATION_WARN_RATIO * settings.ollama_num_ctx:
+        logger.warning(
+            "Ollama prompt used %s of %s context tokens (%s): input was probably truncated",
+            used,
+            settings.ollama_num_ctx,
+            context or "n/a",
+        )
+
+
 def _with_ctx(options: dict | None) -> dict:
     """Merge the configured context window into per-call Ollama options."""
     merged = dict(options or {})
@@ -112,6 +165,7 @@ async def _ollama_chat_with_retry(
     format: dict | None = None,
     timeout: float = OLLAMA_TIMEOUT,
     options: dict | None = None,
+    context: str = "",
 ) -> str:
     """Call Ollama chat with automatic retry on failure; returns message content."""
     client = _ollama_client()
@@ -127,6 +181,7 @@ async def _ollama_chat_with_retry(
                 ),
                 timeout=timeout,
             )
+            _check_truncation(response, context)
             return response["message"]["content"]
         except Exception as e:
             last_error = e
@@ -162,6 +217,8 @@ async def ollama_chat_stream(
             content = part["message"]["content"]
         except (KeyError, TypeError):
             content = ""
+        if part.get("done") if isinstance(part, dict) else getattr(part, "done", False):
+            _check_truncation(part, "chat stream")
         if content:
             yield content
 
@@ -174,11 +231,20 @@ def load_prompt(name: str) -> str:
     raise FileNotFoundError(f"Prompt template '{name}' not found")
 
 
-async def generate_summary(text: str) -> str:
+async def generate_summary(text: str, context: str = "") -> str:
     """Generate a summary of the given text using Ollama."""
-    prompt = load_prompt("summary").format(text=text[:8000])
+    template = load_prompt("summary")
+    text = fit_text(
+        text[:8000],
+        template_chars=len(template),
+        answer_tokens=SUMMARY_ANSWER_TOKENS,
+        context=f"summary {context}".strip(),
+    )
+    prompt = template.format(text=text)
     logger.info(f"Calling Ollama at {settings.ollama_base_url} with model {settings.ollama_model}")
-    return await _ollama_chat_with_retry([{"role": "user", "content": prompt}])
+    return await _ollama_chat_with_retry(
+        [{"role": "user", "content": prompt}], context=f"summary {context}".strip()
+    )
 
 
 async def generate_podcast_script(digest: str) -> str:
@@ -189,10 +255,17 @@ async def generate_podcast_script(digest: str) -> str:
     sentences, no list markers, expanded abbreviations, English jargon avoided —
     which also sidesteps the small TTS voice's worst mispronunciations.
     """
-    prompt = load_prompt("podcast_script").format(digest=digest[:6000])
+    template = load_prompt("podcast_script")
+    digest = fit_text(
+        digest[:6000],
+        template_chars=len(template),
+        answer_tokens=settings.audio_script_num_predict,
+        context="podcast script",
+    )
     return await _ollama_chat_with_retry(
-        [{"role": "user", "content": prompt}],
+        [{"role": "user", "content": template.format(digest=digest)}],
         options={"num_predict": settings.audio_script_num_predict},
+        context="podcast script",
     )
 
 
@@ -209,12 +282,17 @@ def normalize_topic(raw: str) -> str | None:
     return topic
 
 
-async def extract_topics(text: str) -> list[str]:
+async def extract_topics(text: str, context: str = "") -> list[str]:
     """Extract normalized topics from text via structured output."""
-    prompt = load_prompt("topics").format(text=text[:4000])
+    template = load_prompt("topics")
+    label = f"topics {context}".strip()
+    text = fit_text(
+        text[:4000], template_chars=len(template), answer_tokens=TOPICS_ANSWER_TOKENS, context=label
+    )
     content = await _ollama_chat_with_retry(
-        [{"role": "user", "content": prompt}],
+        [{"role": "user", "content": template.format(text=text)}],
         format=TOPICS_SCHEMA,
+        context=label,
     )
 
     try:
@@ -298,16 +376,26 @@ async def generate_weekly_summary(
         content_parts.append(f"### {title}\n{summary}\n")
     content = "\n".join(content_parts)
 
-    prompt = load_prompt("weekly_summary").format(
-        content=content[:10000],
-        topics_summary=_build_topics_summary(topics_by_item or {}),
-        relations_summary=_build_relations_summary(relations or []),
+    template = load_prompt("weekly_summary")
+    topics_summary = _build_topics_summary(topics_by_item or {})
+    relations_summary = _build_relations_summary(relations or [])
+    content = fit_text(
+        content[:10000],
+        template_chars=len(template) + len(topics_summary) + len(relations_summary),
+        answer_tokens=WEEKLY_ANSWER_TOKENS,
+        context="weekly summary",
+    )
+    prompt = template.format(
+        content=content,
+        topics_summary=topics_summary,
+        relations_summary=relations_summary,
     )
 
     logger.info("Generating weekly summary with Ollama (structured output)")
     raw = await _ollama_chat_with_retry(
         [{"role": "user", "content": prompt}],
         format=WEEKLY_SCHEMA,
+        context="weekly summary",
     )
 
     parsed = json.loads(raw)

@@ -72,3 +72,53 @@ async def test_all_chat_paths_pass_num_ctx(monkeypatch):
     assert all(o["num_ctx"] == 4096 for o in seen)
     # per-call options are preserved next to num_ctx
     assert any("num_predict" in o for o in seen)
+
+
+def _capture_warnings(monkeypatch) -> list[str]:
+    """Collect summarizer warnings (caplog is unreliable with the app's logging setup)."""
+    from app.services import summarizer
+
+    captured: list[str] = []
+    monkeypatch.setattr(
+        summarizer.logger, "warning", lambda msg, *a, **k: captured.append(msg % a if a else msg)
+    )
+    return captured
+
+
+def test_fit_text_cuts_and_warns(monkeypatch):
+    from app.config import settings
+    from app.services.summarizer import fit_text
+
+    monkeypatch.setattr(settings, "ollama_num_ctx", 1000)
+    long_text = "x" * 10_000
+    warnings = _capture_warnings(monkeypatch)
+    out = fit_text(long_text, template_chars=350, answer_tokens=400, context="item 42")
+    # (1000 - 400 - 100) tokens * 3.5 = 1750 chars
+    assert len(out) == 1750
+    assert "item 42" in " ".join(warnings)
+
+    assert fit_text("short", template_chars=350, answer_tokens=400) == "short"
+
+
+async def test_prompt_eval_count_near_limit_warns(monkeypatch):
+    from app.config import settings
+    from app.services import summarizer
+
+    monkeypatch.setattr(settings, "ollama_num_ctx", 1000)
+
+    class FakeClient:
+        def __init__(self, used):
+            self.used = used
+
+        async def chat(self, **kwargs):
+            return {"message": {"content": "ok"}, "prompt_eval_count": self.used}
+
+    monkeypatch.setattr(summarizer, "_ollama_client", lambda: FakeClient(980))
+    warnings = _capture_warnings(monkeypatch)
+    await summarizer.generate_summary("hello", context="item 7")
+    assert "truncated" in " ".join(warnings) and "item 7" in " ".join(warnings)
+
+    warnings.clear()
+    monkeypatch.setattr(summarizer, "_ollama_client", lambda: FakeClient(400))
+    await summarizer.generate_summary("hello", context="item 7")
+    assert not warnings

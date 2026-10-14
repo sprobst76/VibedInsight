@@ -70,9 +70,9 @@ async def process_item(item_id: uuid.UUID) -> None:
                 item.status = ProcessingStatus.PROCESSING
                 await db.commit()
 
-                item.summary = await generate_summary(item.raw_text)
+                item.summary = await generate_summary(item.raw_text, context=f"item {item_id}")
 
-                topic_names = await extract_topics(item.raw_text)
+                topic_names = await extract_topics(item.raw_text, context=f"item {item_id}")
                 logger.info(f"Item {item_id}: extracted topics: {topic_names}")
                 await _attach_topics(item, topic_names, db)
 
