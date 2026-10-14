@@ -48,12 +48,12 @@ async def lifespan(app: FastAPI):
         )
 
     await requeue_stuck_items()
-    scheduler_task = start_scheduler()
+    scheduler_tasks = start_scheduler()
 
     yield
 
-    if scheduler_task:
-        scheduler_task.cancel()
+    for task in scheduler_tasks:
+        task.cancel()
 
 
 app = FastAPI(

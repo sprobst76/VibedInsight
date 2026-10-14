@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     rag_context_char_budget: int = 3000
     rag_num_predict: int = 200  # max answer tokens (Ollama num_predict); 0 = model default
 
+    # Automatic retry of FAILED items (see services/scheduler.py:retry_tick)
+    retry_tick_enabled: bool = True
+    retry_tick_interval_seconds: int = 300
+    retry_max_attempts: int = 5
+    retry_batch_size: int = 3
+
     # Auto-generate the weekly summary every Sunday evening (server time)
     weekly_auto_generate: bool = True
     # Max items fed into one digest, applied AFTER sorting by rating/triage/recency.

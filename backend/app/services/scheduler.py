@@ -2,18 +2,24 @@
 In-process scheduler: generates the weekly digest every Sunday at 18:00
 (server time) so it's ready when the week ends — no external cron needed.
 
-Deliberately simple: a single asyncio loop task started from the app
-lifespan. If the server is down at the scheduled moment, the digest is
-generated on the next Sunday or on demand via the API.
+Also runs a retry tick every few minutes that re-processes FAILED items whose
+backoff has elapsed (see retry_tick).
+
+Deliberately simple: asyncio loop tasks started from the app lifespan. If the
+server is down at the scheduled moment, the digest is generated on the next
+Sunday or on demand via the API.
 """
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import select
 
 from app.config import settings
 from app.database import async_session_maker
 from app.dependencies import get_or_create_owner
+from app.models.content import ContentItem, ProcessingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +65,62 @@ async def generate_weekly_digest() -> None:
             logger.info("Weekly digest skipped: no items this week")
 
 
-def start_scheduler() -> asyncio.Task | None:
-    """Start the digest loop if enabled; returns the task for lifecycle handling."""
-    if not settings.weekly_auto_generate:
+async def retry_tick() -> int:
+    """
+    Re-process FAILED items that are due for an automatic retry.
+
+    Picks up to `retry_batch_size` items with attempts < `retry_max_attempts`
+    and next_retry_at <= now. FOR UPDATE SKIP LOCKED keeps overlapping ticks
+    (or several workers) from taking the same item; the picked items are set
+    to PENDING before the lock is released. Returns the number scheduled.
+    """
+    # Imported lazily so tests can patch processing.schedule_processing
+    from app.services import processing
+
+    async with async_session_maker() as db:
+        result = await db.execute(
+            select(ContentItem)
+            .where(
+                ContentItem.status == ProcessingStatus.FAILED,
+                ContentItem.attempts < settings.retry_max_attempts,
+                ContentItem.next_retry_at <= datetime.now(UTC),
+            )
+            .order_by(ContentItem.next_retry_at)
+            .limit(settings.retry_batch_size)
+            .with_for_update(skip_locked=True)
+        )
+        items = list(result.scalars().all())
+        for item in items:
+            item.status = ProcessingStatus.PENDING
+        ids = [item.id for item in items]
+        await db.commit()
+
+    for item_id in ids:
+        processing.schedule_processing(item_id)
+    if ids:
+        logger.info(f"Retry tick: rescheduled {len(ids)} failed item(s)")
+    return len(ids)
+
+
+async def retry_loop() -> None:
+    """Run retry_tick periodically."""
+    while True:
+        await asyncio.sleep(settings.retry_tick_interval_seconds)
+        try:
+            await retry_tick()
+        except Exception:
+            logger.exception("Retry tick failed")
+
+
+def start_scheduler() -> list[asyncio.Task]:
+    """Start the enabled background loops; returns the tasks for lifecycle handling."""
+    tasks: list[asyncio.Task] = []
+    if settings.weekly_auto_generate:
+        tasks.append(asyncio.create_task(weekly_digest_loop()))
+    else:
         logger.info("Weekly digest scheduler disabled (WEEKLY_AUTO_GENERATE=false)")
-        return None
-    return asyncio.create_task(weekly_digest_loop())
+    if settings.retry_tick_enabled:
+        tasks.append(asyncio.create_task(retry_loop()))
+    else:
+        logger.info("Retry tick disabled (RETRY_TICK_ENABLED=false)")
+    return tasks

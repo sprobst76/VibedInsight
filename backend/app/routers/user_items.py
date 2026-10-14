@@ -23,7 +23,7 @@ from app.schemas import (
     UserItemResponse,
     UserItemsListResponse,
 )
-from app.services.processing import reprocess_item
+from app.services.processing import reprocess_item, schedule_processing
 
 router = APIRouter()
 
@@ -384,6 +384,36 @@ async def reprocess(
             status_code=400,
             detail="Cannot reprocess: no stored text and no URL to re-fetch",
         )
+
+    await db.refresh(user_item)
+    return _build_user_item_response(user_item)
+
+
+@router.post("/{item_id}/retry", response_model=UserItemResponse, status_code=202)
+async def retry(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retry a FAILED item now: resets the retry counter and restarts processing
+    (fetching the URL again if no text was stored). 409 if it isn't FAILED.
+    """
+    user_item = await _get_user_item(item_id, user, db)
+    content = user_item.content
+
+    if content.status != ProcessingStatus.FAILED:
+        raise HTTPException(status_code=409, detail="Only failed items can be retried")
+    if not content.raw_text and not content.url:
+        raise HTTPException(status_code=400, detail="Cannot retry: no stored text and no URL")
+
+    content_id = content.id
+    content.status = ProcessingStatus.PENDING
+    content.attempts = 0
+    content.next_retry_at = None
+    content.last_error = None
+    await db.commit()
+    schedule_processing(content_id)
 
     await db.refresh(user_item)
     return _build_user_item_response(user_item)
