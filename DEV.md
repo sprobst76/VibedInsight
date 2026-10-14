@@ -137,3 +137,24 @@ never run at container start. Source: `backend/app/tools/rehash.py`.
 
 Push to `main` → GitHub Action → SSH to VPS → `deploy.sh update`.
 Branches `rework/**` run CI without deploying.
+
+## App size and startup (measured 2026-10-14, v0.7.0)
+
+`flutter build apk --release --split-per-abi` (CI does this since v0.7.0):
+
+| APK | Size |
+|---|---|
+| fat (all ABIs, old CI default) | 58.5 MB |
+| arm64-v8a (main sideload APK) | 21.5 MB |
+| armeabi-v7a | 19.4 MB |
+| x86_64 (emulator only, not published) | 22.9 MB |
+
+Motorola Defy (Android 11), release build, `am start -W` cold start: 605–738 ms
+(median of 4 warm-cache runs; 1.27 s right after install), PSS ≈ 100 MB.
+R8 and resource shrinking were already enabled. Decision: no Kotlin rewrite —
+revisit only if cold start exceeds ~1.5 s.
+
+Side-by-side device tests: debug builds use the application id suffix `.dev`;
+for a release-like build run `VI_DEV_SUFFIX=1 flutter build apk --release --split-per-abi`
+and install with `adb install -r` (package `com.vibedinsight.app.dev`; the real app and
+its settings stay untouched).

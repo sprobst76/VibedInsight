@@ -36,6 +36,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // VI_DEV_SUFFIX=1 builds a release-like APK that installs next to the real app
+        // (used to measure startup on a device without touching its data).
+        if (System.getenv("VI_DEV_SUFFIX") == "1") {
+            applicationIdSuffix = ".dev"
+        }
     }
 
     signingConfigs {
@@ -50,6 +55,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Install next to the real app (different signing key) for device tests.
+            applicationIdSuffix = ".dev"
+        }
         release {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")

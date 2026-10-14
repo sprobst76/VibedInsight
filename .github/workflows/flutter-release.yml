@@ -66,15 +66,18 @@ jobs:
         working-directory: app
         run: flutter build appbundle --release
 
-      - name: Build signed APK (sideload)
+      # One APK per ABI: arm64 ~22 MB vs ~58 MB for the fat APK (all ABIs).
+      - name: Build signed APKs (sideload, split per ABI)
         working-directory: app
-        run: flutter build apk --release
+        run: flutter build apk --release --split-per-abi
 
       - name: Rename artifacts
         run: |
           V="${{ github.event.inputs.version || github.ref_name }}"
           cp app/build/app/outputs/bundle/release/app-release.aab "vibedinsight-${V}.aab"
-          cp app/build/app/outputs/flutter-apk/app-release.apk "vibedinsight-${V}.apk"
+          # arm64 is the main sideload APK (all current phones); v7a for old 32-bit devices.
+          cp app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "vibedinsight-${V}.apk"
+          cp app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "vibedinsight-${V}-armeabi-v7a.apk"
 
       - name: Upload to Play Internal Testing
         if: env.HAS_PLAY_SA != ''
@@ -96,7 +99,8 @@ jobs:
 
             - **`vibedinsight-*.aab`** — signiertes App Bundle für den Play Store
               (erster Upload manuell in der Play Console, danach automatisch).
-            - **`vibedinsight-*.apk`** — signierte APK zum Sideloaden.
+            - **`vibedinsight-<version>.apk`** — signierte APK (arm64, ~22 MB) zum Sideloaden.
+            - **`vibedinsight-<version>-armeabi-v7a.apk`** — nur für alte 32-Bit-Geräte.
 
             Requires the VibedInsight backend running on your server.
           files: |
