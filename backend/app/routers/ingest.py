@@ -6,9 +6,11 @@ link, then schedules background processing (see app.services.processing).
 """
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +27,7 @@ from app.schemas import (
 from app.services.extractor import PrivateAddressError, extract_from_url
 from app.services.processing import schedule_processing
 from app.services.urlnorm import hash_url
+from app.timeutils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +63,41 @@ async def load_user_item_response(user_item_id: int, db: AsyncSession) -> UserIt
     )
 
 
+async def _link_user_to_item(
+    user: User, content_id: uuid.UUID, db: AsyncSession
+) -> tuple[int, bool]:
+    """Ensure the user has a UserItem for the content; returns (id, newly_linked)."""
+    result = await db.execute(
+        select(UserItem.id).where(UserItem.user_id == user.id, UserItem.content_id == content_id)
+    )
+    existing_id = result.scalar_one_or_none()
+    if existing_id is not None:
+        return existing_id, False
+
+    # ON CONFLICT guards against a concurrent identical request for the same user
+    inserted = await db.execute(
+        pg_insert(UserItem)
+        .values(user_id=user.id, content_id=content_id, created_at=utcnow(), updated_at=utcnow())
+        .on_conflict_do_nothing(constraint="uq_user_item_content")
+        .returning(UserItem.id)
+    )
+    new_id = inserted.scalar_one_or_none()
+    if new_id is None:
+        result = await db.execute(
+            select(UserItem.id).where(
+                UserItem.user_id == user.id, UserItem.content_id == content_id
+            )
+        )
+        return result.scalar_one(), False
+
+    await db.execute(
+        update(ContentItem)
+        .where(ContentItem.id == content_id)
+        .values(ref_count=ContentItem.ref_count + 1)
+    )
+    return new_id, True
+
+
 @router.post("/url", response_model=UserItemResponse)
 async def ingest_url(
     request: IngestURLRequest,
@@ -75,24 +113,8 @@ async def ingest_url(
     existing = existing_result.scalar_one_or_none()
 
     if existing:
-        user_item_result = await db.execute(
-            select(UserItem).where(
-                UserItem.user_id == user.id,
-                UserItem.content_id == existing.id,
-            )
-        )
-        existing_user_item = user_item_result.scalar_one_or_none()
-
-        if existing_user_item:
-            return await load_user_item_response(existing_user_item.id, db)
-
-        existing.ref_count += 1
-        user_item = UserItem(user_id=user.id, content_id=existing.id)
-        db.add(user_item)
-        await db.flush()
-        user_item_id = user_item.id
+        user_item_id, _ = await _link_user_to_item(user, existing.id, db)
         await db.commit()
-
         return await load_user_item_response(user_item_id, db)
 
     # Extract content from URL
@@ -106,28 +128,40 @@ async def ingest_url(
     if not extracted["text"]:
         raise HTTPException(status_code=400, detail="Could not extract text from URL")
 
-    item = ContentItem(
-        content_type=ContentType.LINK,
-        status=ProcessingStatus.PENDING,
-        url=url,
-        url_hash=url_hash,
-        title=extracted["title"],
-        source=extracted["source"],
-        raw_text=extracted["text"],
-        ref_count=1,
+    # INSERT .. ON CONFLICT DO NOTHING: a parallel identical request may have
+    # created the item while we were fetching; then we link to theirs instead
+    # of failing on the unique url_hash index.
+    new_id = uuid.uuid4()
+    inserted = await db.execute(
+        pg_insert(ContentItem)
+        .values(
+            id=new_id,
+            content_type=ContentType.LINK,
+            status=ProcessingStatus.PENDING,
+            url=url,
+            url_hash=url_hash,
+            title=extracted["title"],
+            source=extracted["source"],
+            raw_text=extracted["text"],
+            ref_count=0,
+            created_at=utcnow(),
+        )
+        .on_conflict_do_nothing(index_elements=["url_hash"])
+        .returning(ContentItem.id)
     )
+    created = inserted.scalar_one_or_none() is not None
+    if created:
+        content_id = new_id
+    else:
+        content_id = (
+            await db.execute(select(ContentItem.id).where(ContentItem.url_hash == url_hash))
+        ).scalar_one()
 
-    db.add(item)
-    await db.flush()
-
-    user_item = UserItem(user_id=user.id, content_id=item.id)
-    db.add(user_item)
-    await db.flush()
-    user_item_id = user_item.id
-
+    user_item_id, _ = await _link_user_to_item(user, content_id, db)
     await db.commit()
 
-    schedule_processing(item.id)
+    if created:
+        schedule_processing(content_id)
 
     return await load_user_item_response(user_item_id, db)
 
