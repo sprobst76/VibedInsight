@@ -14,6 +14,7 @@ import traceback
 import uuid
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -180,6 +181,21 @@ async def _refetch_and_process(item_id: uuid.UUID) -> None:
         logger.error(f"Startup requeue failed for item {item_id}: {e}")
 
 
+async def _get_or_create_topic(name: str, db: AsyncSession) -> Topic:
+    """Race-safe get-or-create: INSERT .. ON CONFLICT DO NOTHING, then SELECT.
+
+    Two items processed in parallel may produce the same new topic; a plain
+    SELECT-then-INSERT would hit the unique index and fail one of them.
+    """
+    await db.execute(
+        pg_insert(Topic)
+        .values(name=name, created_at=utcnow())
+        .on_conflict_do_nothing(index_elements=["name"])
+    )
+    result = await db.execute(select(Topic).where(Topic.name == name))
+    return result.scalar_one()
+
+
 async def _attach_topics(item: ContentItem, topic_names: list[str], db: AsyncSession) -> None:
     """Get-or-create topics by name and set them on the item.
 
@@ -188,16 +204,15 @@ async def _attach_topics(item: ContentItem, topic_names: list[str], db: AsyncSes
     topics).
     """
     item.topics.clear()
+    # Create in sorted order so two transactions never take the row locks of
+    # the same topics in opposite order (deadlock); attach in original order.
+    by_name: dict[str, Topic] = {}
+    for name in sorted(set(topic_names)):
+        by_name[name] = await _get_or_create_topic(name, db)
+
     attached_ids: set[int] = set()
-    for topic_name in topic_names:
-        topic_result = await db.execute(select(Topic).where(Topic.name == topic_name))
-        topic = topic_result.scalar_one_or_none()
-
-        if not topic:
-            topic = Topic(name=topic_name)
-            db.add(topic)
-            await db.flush()
-
+    for name in topic_names:
+        topic = by_name[name]
         if topic.id not in attached_ids:
             item.topics.append(topic)
             attached_ids.add(topic.id)
