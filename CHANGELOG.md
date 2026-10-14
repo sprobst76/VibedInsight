@@ -5,6 +5,43 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-14
+
+### Fixed
+- **URL-Dedup:** Der Query-String bleibt im `url_hash` (`youtube.com/watch?v=A`
+  und `?v=B` waren bisher dasselbe Item). Tracking-Parameter (`utm_*`, `fbclid`,
+  `gclid` u. a.), Fragment und Default-Port werden entfernt. Bestehende Hashes
+  bleiben unverändert, bis `python -m app.tools.rehash` gelaufen ist
+  (Runbook in `DEV.md`, vorher `./deploy.sh backup`).
+- **Build:** `sqlalchemy[asyncio]` im Dockerfile und `pyproject.toml`. Frische
+  Images stürzten sonst mit `ImportError: greenlet` ab.
+- **Race-Conditions:** Topics und `url_hash` per `ON CONFLICT DO NOTHING`;
+  gleichzeitige Ingests führen nicht mehr zu 500 bzw. `FAILED`.
+
+### Security
+- **SSRF-sicherer Fetcher** (`services/fetcher.py`): alle aufgelösten IPs
+  geprüft (inkl. IPv4-mapped IPv6), Verbindung an die geprüfte IP gepinnt,
+  Redirects manuell mit Prüfung pro Hop (max. 5), 5-MB-Limit auf entpackte
+  Bytes, Content-Type-Allowlist. URLs mit Zugangsdaten werden abgelehnt.
+
+### Changed
+- **Asynchroner Ingest:** `POST /ingest/url` antwortet sofort mit 202 und
+  Status `pending`; Fetch und Verarbeitung laufen im Hintergrund. Schlägt die
+  Extraktion fehl, bleibt das Item als `FAILED` mit `last_error` erhalten.
+- **Retries:** Migration 009 (`attempts`, `last_error`, `next_retry_at`),
+  Retry-Tick mit Backoff (5 min · 2^n, max. 5 Versuche) und
+  `POST /items/{id}/retry`. Items in `PENDING`/`PROCESSING` werden nach einem
+  Neustart neu eingeplant.
+- **LLM-Kontext:** `OLLAMA_NUM_CTX` (Default 8192) wird an alle Chat-Aufrufe
+  übergeben; zu lange Eingaben werden vorab gekürzt, Warnung bei ≥ 95 %
+  Auslastung.
+- **Weekly:** Items werden nach Rating, Triage-Score und Aktualität
+  priorisiert, danach gilt die Obergrenze (`WEEKLY_MAX_ITEMS`, Default 20).
+  Ab mehr als 10 Items läuft ein Map-Reduce über bis zu 6 Themen-Cluster; der
+  Status-Poll meldet den Fortschritt. Auf dem CPU-VPS noch nicht gemessen.
+- **App:** 202/`pending` wird verarbeitet, bei `failed` zeigt der Detail-Screen
+  Grund und Versuche mit Button „Erneut versuchen".
+
 ## [0.6.5] - 2026-07-24
 
 ### Changed — Asynchrone Weekly-Generierung
