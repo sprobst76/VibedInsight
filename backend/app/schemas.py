@@ -116,6 +116,9 @@ class UserItemResponse(BaseModel):
     id: int
     content_type: ContentType
     status: ProcessingStatus
+    # Additive: processing retry info (attempts so far, short error of the last failure)
+    attempts: int = 0
+    last_error: str | None = None
     url: str | None
     title: str | None
     source: str | None

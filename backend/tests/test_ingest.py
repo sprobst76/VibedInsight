@@ -66,6 +66,8 @@ async def test_ingest_url_returns_202_with_pending_item(client, scheduled):
     body = resp.json()
     assert body["status"] == "pending"
     assert body["title"] == url
+    assert body["attempts"] == 0
+    assert body["last_error"] is None
     assert body["url"] == url
     assert len(scheduled) == 1
     # the item is immediately visible via the normal item endpoint
@@ -131,7 +133,11 @@ async def test_fetch_error_marks_item_failed_and_keeps_it(client, scheduled, mon
     assert item.last_error and "404" in item.last_error and len(item.last_error) <= 300
     assert item.next_retry_at is not None
     # the user item survives and is still reachable
-    assert (await client.get(f"/items/{resp.json()['id']}")).status_code == 200
+    got = await client.get(f"/items/{resp.json()['id']}")
+    assert got.status_code == 200
+    assert got.json()["status"] == "failed"
+    assert got.json()["attempts"] == 1
+    assert "404" in got.json()["last_error"]
 
 
 async def test_successful_async_fetch_fills_title_and_completes(client, scheduled, monkeypatch):

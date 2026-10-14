@@ -43,6 +43,8 @@ def _build_user_item_response(user_item: UserItem) -> UserItemResponse:
         id=user_item.id,
         content_type=content.content_type,
         status=content.status,
+        attempts=content.attempts,
+        last_error=content.last_error,
         url=content.url,
         title=content.title,
         source=content.source,
