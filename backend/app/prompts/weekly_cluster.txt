@@ -1,0 +1,11 @@
+Du bist ein sorgfältiger Redakteur. Fasse die folgenden Artikel zum Thema "{topic}" auf Deutsch zusammen.
+
+ARTIKEL:
+{content}
+
+Antworte als JSON-Objekt mit genau diesen Feldern:
+- "theme": kurzer Name für das gemeinsame Thema dieser Artikel (maximal 5 Wörter)
+- "summary": 2-4 Sätze, die zusammenfassen, was die Artikel zu diesem Thema sagen
+- "key_points": Liste mit 2-5 konkreten Kernaussagen (je ein Satz)
+
+Schreibe sachlich und konkret. Erfinde keine Inhalte, die nicht in den Artikeln stehen.
