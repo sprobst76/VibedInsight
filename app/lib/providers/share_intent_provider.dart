@@ -85,7 +85,13 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
         final url = content.extractUrl();
 
         if (url != null) {
-          _processUrlInBackground(url, closeAfter: closeAfter);
+          _processInBackground(url: url, closeAfter: closeAfter);
+        } else {
+          // Text without a URL becomes a note instead of being dropped
+          final text = '${file.path}\n${file.message ?? ''}'.trim();
+          if (text.isNotEmpty) {
+            _processInBackground(noteText: text, closeAfter: closeAfter);
+          }
         }
         break;
       }
@@ -94,17 +100,32 @@ class ShareIntentNotifier extends StateNotifier<SharedContent?> {
     ReceiveSharingIntent.instance.reset();
   }
 
-  Future<void> _processUrlInBackground(String url, {bool closeAfter = false}) async {
+  Future<void> _processInBackground({
+    String? url,
+    String? noteText,
+    bool closeAfter = false,
+  }) async {
     final notificationService = _ref.read(notificationServiceProvider);
     final repo = _ref.read(itemsRepositoryProvider);
     final lang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
     final l10n = lookupAppLocalizations(Locale(lang == 'de' ? 'de' : 'en'));
-    final domain = Uri.tryParse(url)?.host ?? url;
 
     // Wait for the ingest (short timeout, queue fallback) BEFORE closing the
     // app, otherwise the request may be lost once the activity is gone.
-    final outcome = await ingestSharedUrl(repo, url);
-    await _notify(notificationService, l10n, outcome, domain);
+    final ShareOutcome outcome;
+    final String target;
+    if (url != null) {
+      target = Uri.tryParse(url)?.host ?? url;
+      outcome = await ingestSharedUrl(repo, url);
+    } else {
+      target = noteTitleFromText(noteText!, l10n.shareNoteTitleFallback);
+      outcome = await ingestSharedNote(
+        repo,
+        noteText,
+        fallbackTitle: l10n.shareNoteTitleFallback,
+      );
+    }
+    await _notify(notificationService, l10n, outcome, target);
 
     if (outcome.item != null) {
       try {
