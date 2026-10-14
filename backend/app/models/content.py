@@ -115,6 +115,13 @@ class ContentItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Processing retry bookkeeping (see services/processing.py, services/scheduler.py)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
     # Relationships
     topics: Mapped[list[Topic]] = relationship(secondary=content_topics, back_populates="items")
 
