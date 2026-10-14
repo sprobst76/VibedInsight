@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from app.config import settings
-from app.services import fetcher
+from app.services import extractor, fetcher
 from app.services.fetcher import (
     FetchError,
     FetchStatusError,
@@ -340,3 +340,28 @@ async def test_allow_private_urls_permits_localhost(net, monkeypatch):
 )
 def test_is_blocked_ip(ip, blocked):
     assert is_blocked_ip(ipaddress.ip_address(ip)) is blocked
+
+
+# ---------------------------------------------------------------------------
+# Extractor integration
+# ---------------------------------------------------------------------------
+
+
+async def test_extractor_uses_safe_fetch(net):
+    page = (
+        b"<html><head><title>Hello World</title></head><body><article>"
+        + b"<p>This is a reasonably long paragraph of article text. </p>" * 20
+        + b"</article></body></html>"
+    )
+    net.routes["www.example.com"] = lambda req: ok(page)
+
+    data = await extractor.extract_from_url("https://www.example.com/post")
+
+    assert data["title"] == "Hello World"
+    assert "reasonably long paragraph" in data["text"]
+    assert data["source"] == "example.com"
+
+
+async def test_extractor_rejects_private_url(net):
+    with pytest.raises(extractor.PrivateAddressError):
+        await extractor.extract_from_url("http://127.0.0.1/")
