@@ -5,9 +5,7 @@ Creates ContentItems (deduplicated by url_hash) plus the owner's UserItem
 link, then schedules background processing (see app.services.processing).
 """
 
-import hashlib
 import logging
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -26,29 +24,11 @@ from app.schemas import (
 )
 from app.services.extractor import PrivateAddressError, extract_from_url
 from app.services.processing import schedule_processing
+from app.services.urlnorm import hash_url
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def normalize_url(url: str) -> str:
-    """
-    Normalize a URL for consistent hashing.
-
-    - Lowercase the scheme and host
-    - Remove trailing slashes
-    """
-    parsed = urlparse(url)
-    normalized = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{parsed.path}"
-    if normalized.endswith("/") and len(parsed.path) > 1:
-        normalized = normalized[:-1]
-    return normalized
-
-
-def hash_url(url: str) -> str:
-    """Generate SHA256 hash of normalized URL."""
-    return hashlib.sha256(normalize_url(url).encode()).hexdigest()
 
 
 async def load_user_item_response(user_item_id: int, db: AsyncSession) -> UserItemResponse:
