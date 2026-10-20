@@ -16,7 +16,9 @@
       "Bash(black*)", "Bash(ruff*)", "Bash(source*)",
       "Bash(echo*)", "Bash(sed*)", "Bash(sort*)", "Bash(xargs*)",
       "Bash(sleep*)", "Bash(until*)", "Bash(ss*)", "WebSearch",
-      "Bash(flutter*)", "Bash(adb*)", "Bash(dart*)"
+      "Bash(flutter*)", "Bash(adb*)", "Bash(dart*)",
+      "Bash(ssh vi-ops health)", "Bash(ssh vi-ops status)", "Bash(ssh vi-ops logs)",
+      "Bash(ssh vi-ops rehash-dry-run)", "Bash(ssh vi-ops rehash-report)"
     ],
     "deny": [
       "Bash(sudo*)", "Bash(rm -rf /*)", "Bash(rm -rf /home*)",
