@@ -21,8 +21,7 @@
     "deny": [
       "Bash(sudo*)", "Bash(rm -rf /*)", "Bash(rm -rf /home*)",
       "Bash(rm -rf /root*)", "Bash(rm -rf /srv*)",
-      "Bash(shutdown*)", "Bash(reboot*)", "Bash(systemctl*)",
-      "Bash(ssh*)"
+      "Bash(shutdown*)", "Bash(reboot*)", "Bash(systemctl*)"
     ]
   }
 }

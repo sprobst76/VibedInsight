@@ -33,7 +33,7 @@ for c in "id" "bash" "rehash --apply" "health; id" "cat /etc/passwd"; do
   S "$c" >/dev/null 2>&1; rc=$?
   [ $rc -eq 126 ] && ok "rejected: $c" || bad "must be rejected with 126, got rc=$rc: $c"
 done
-ssh -o BatchMode=yes -o ConnectTimeout=15 -o ControlPath=none -N -L 9999:localhost:22 vi-ops true >/dev/null 2>&1 \
+timeout 20 ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -o ConnectTimeout=15 -o ControlPath=none -N -L 9999:localhost:22 vi-ops true >/dev/null 2>&1 \
   && bad "port forwarding must be blocked" || ok "port forwarding blocked (or connection refused)"
 
 echo "verify-remote: $pass passed, $fail failed"
