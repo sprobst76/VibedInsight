@@ -1,0 +1,38 @@
+name: Deploy to VPS
+
+# Runs on the host-mode act_runner on the VPS (label "vps"), no inbound SSH needed.
+# Stage 1: manual trigger only. Cutover = enable the push trigger below and
+# switch .github/workflows/deploy.yml to workflow_dispatch (never both at once).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "check (no changes) or deploy"
+        default: check
+  # push:
+  #   branches: [main]
+
+concurrency:
+  group: vibedinsight-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: vps
+    timeout-minutes: 25
+    steps:
+      - name: Sanity check
+        run: |
+          cd /srv/vibedinsight
+          echo "host: $(hostname), user: $(id -un)"
+          docker compose -f backend/docker-compose.yml ps
+          git remote get-url origin
+
+      - name: Deploy
+        if: ${{ github.event_name == 'push' || inputs.action == 'deploy' }}
+        run: |
+          cd /srv/vibedinsight
+          # Deploy target: local edits must never block a deploy
+          git fetch origin
+          git reset --hard origin/main
+          ./deploy.sh update
