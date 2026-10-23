@@ -17,7 +17,7 @@
       "Bash(echo*)", "Bash(sed*)", "Bash(sort*)", "Bash(xargs*)",
       "Bash(sleep*)", "Bash(until*)", "Bash(ss*)", "WebSearch",
       "Bash(flutter*)", "Bash(adb*)", "Bash(dart*)",
-      "Bash(ssh vi-ops health)", "Bash(ssh vi-ops status)", "Bash(ssh vi-ops logs)",
+      "Bash(ssh vi-ops health)", "Bash(ssh vi-ops status)", "Bash(ssh vi-ops deploy-info)", "Bash(ssh vi-ops logs)",
       "Bash(ssh vi-ops rehash-dry-run)", "Bash(ssh vi-ops rehash-report)"
     ],
     "deny": [
