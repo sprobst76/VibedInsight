@@ -2,20 +2,19 @@ name: Deploy to VPS
 
 # Runs on a host-mode act_runner on the VPS (label "vibedinsight"), no inbound SSH needed.
 # Same pattern as pv-planner; see ops/GITEA-DEPLOY.md.
-# Stage 1: manual trigger only. Cutover = enable the push trigger below and
-# switch .github/workflows/deploy.yml to workflow_dispatch (never both at once).
+# Push to main deploys. The GitHub deploy workflow is manual-only (see ops/GITEA-DEPLOY.md).
 on:
   workflow_dispatch:
     inputs:
       action:
         description: "check (no changes) or deploy"
         default: check
-  # push:
-  #   branches: [main]
-  #   paths:            # app-only pushes need no backend deploy
-  #     - 'backend/**'
-  #     - 'deploy.sh'
-  #     - '.gitea/workflows/deploy.yml'
+  push:
+    branches: [main]
+    paths:            # app-only pushes need no backend deploy
+      - 'backend/**'
+      - 'deploy.sh'
+      - '.gitea/workflows/deploy.yml'
 
 concurrency:
   group: vibedinsight-deploy
