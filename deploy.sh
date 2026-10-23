@@ -168,7 +168,8 @@ status() {
 
     echo ""
     log_info "Health Check:"
-    if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+    # The API container has no host port mapping: check from inside the container
+    if docker compose exec -T api curl -sf http://localhost:8000/health > /dev/null 2>&1; then
         echo -e "  API: ${GREEN}healthy${NC}"
     else
         echo -e "  API: ${RED}unhealthy${NC}"
