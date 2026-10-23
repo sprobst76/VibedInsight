@@ -32,7 +32,13 @@ RUN python -m piper.download_voices ${TTS_VOICE} --data-dir ${TTS_VOICES_DIR}
 # Copy application code
 COPY . .
 
-RUN chmod +x /app/entrypoint.sh
+# Source may arrive with restrictive host permissions; the unprivileged user needs read access
+RUN chmod -R a+rX /app && chmod +x /app/entrypoint.sh
+
+# Run unprivileged. /app/data holds the audio cache; piper voices stay root-owned (read-only).
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /app/data/audio && chown -R app:app /app/data
+USER app
 
 EXPOSE 8000
 

@@ -18,10 +18,13 @@ services:
       resources:
         limits:
           memory: 256M
+          pids: 256
         reservations:
           memory: 128M
     networks:
       - ai-lab_ai-lab
+    security_opt:
+      - no-new-privileges:true
     environment:
       - TZ=${TZ:-Europe/Berlin}
       - POSTGRES_USER=vibedinsight
@@ -49,6 +52,7 @@ services:
       resources:
         limits:
           memory: 256M
+          pids: 256
         reservations:
           memory: 64M
     networks:
@@ -59,12 +63,17 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
       - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-mxbai-embed-large}
-      # WICHTIG: API_KEY in .env setzen — ohne Key läuft die API ungeschützt
-      # (Übergangsweise optional, damit Bestands-Deploys nicht hart scheitern)
-      - API_KEY=${API_KEY:-}
+      # Fail closed: without API_KEY the stack refuses to start instead of running unprotected
+      - API_KEY=${API_KEY:?API_KEY must be set in .env}
+      # The Android app is not a browser; no wildcard CORS in production
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://insight.lab.${DOMAIN}}
       - ALLOW_PRIVATE_URLS=${ALLOW_PRIVATE_URLS:-false}
       - WEEKLY_AUTO_GENERATE=${WEEKLY_AUTO_GENERATE:-true}
       - DEBUG=false
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       postgres:
         condition: service_healthy
