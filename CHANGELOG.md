@@ -5,6 +5,21 @@ All notable changes to VibedInsight will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- **Container-Härtung:** API-Container läuft als Nicht-root (uid 10001) mit
+  `cap_drop: ALL`, `no-new-privileges` und pids-Limit; Postgres mit
+  `no-new-privileges`. `API_KEY` ist Pflicht, CORS auf die Insight-Domain begrenzt.
+- **Deploy über Gitea-Runner** statt GitHub→SSH; GitHub-Deploy-Secrets entfernt.
+
+### Added
+- `ops/`: eingeschränkter Ops-Zugang (`vi-ops`, Forced-Command-Whitelist) mit
+  Selftest, Installer und Verifikation.
+
+### Fixed
+- `deploy.sh status`: Health-Check läuft im Container (meldete fälschlich "unhealthy").
+
 ## [0.7.0] - 2026-10-14
 
 ### Fixed

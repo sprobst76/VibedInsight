@@ -12,7 +12,7 @@ Entwicklung läuft auf dem **development-homeserver** (Tailscale
 mit den gleichen Ports (:8100 API, :5433 pgvector). Dev-Stack: `./dev.sh up`
 (API mit --reload, pgvector, eigene Test-DB für pytest via `./dev.sh test`).
 Git/GitHub ist die einzige Quelle der Wahrheit — NIE Projektbäume per rsync
-syncen. Prod-Deploy bleibt unverändert: Push auf `main` → VPS.
+syncen. Prod-Deploy: Push auf Gitea-`main` → Runner auf dem VPS (siehe unten).
 
 ## Architekturentscheidungen (2026-07, bewusst getroffen)
 
@@ -99,8 +99,23 @@ Lebendes Beispiel: `IMPLEMENTATION-PLAN.md`.
   echten Inhalte — NIE mit leerem/altem Dev-Stand überschreiben. Datenfluss nur
   Prod→Dev (z.B. `pg_dump` vom VPS in die Dev-DB), nie umgekehrt. Vor riskanten
   Prod-Aktionen `./deploy.sh backup`.
-- Deploy: Push auf `main` → GitHub Action → SSH auf VPS → `deploy.sh update`.
+- **Deploy (seit 2026-10-28): Gitea statt GitHub→SSH.** Push auf `main` in
+  Gitea (`marvin/VibedInsight`, Remote `gitea`) mit Änderungen in `backend/**`,
+  `deploy.sh` oder `.gitea/workflows/deploy.yml` → Host-Runner `act_runner-vibedinsight`
+  (Label `vibedinsight:host`, User aiplatform) führt `deploy.sh update` aus
+  (Pre-Deploy-Backup, `git reset --hard origin/main`). Manuell: Workflow
+  `workflow_dispatch` (check|deploy). Details: `ops/GITEA-DEPLOY.md`.
+  GitHub-`main` wird nur noch gespiegelt; die GitHub-Deploy-Secrets sind gelöscht.
   CI-Branchtests: Branches `rework/**` triggern CI ohne Deploy.
+- **Remote-Zugriff für Claude:** nur `ssh vi-ops <cmd>` (Port 2223 auf der
+  Tailscale-IP, Forced-Command `ops/vps-ops.sh`, Whitelist: health, status,
+  deploy-info, logs, rehash-dry-run, rehash-report). Kein allgemeines SSH.
+  Tailscale SSH fängt Port 22 ab, daher der zweite sshd-Port (`ops/enable-ops-port.sh`).
+- **Container-Härtung (0.7.x):** API läuft als uid 10001, `cap_drop: ALL`,
+  `no-new-privileges`, pids-Limit; `API_KEY` Pflicht, CORS nur `insight.lab.$DOMAIN`.
+  Offen: `read_only`-FS (Audio-Cache), interner DB-Netzwerk.
+- ⚠️ In `~/.ssh/authorized_keys` des VPS liegen zwei `github-actions-deploy`-Keys,
+  die vermutlich Heimdall/CourseFlow nutzen — nicht ohne Prüfung löschen.
 
 ## Versionen
 

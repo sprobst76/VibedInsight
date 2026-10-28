@@ -133,9 +133,10 @@ never run at container start. Source: `backend/app/tools/rehash.py`.
 - Until the rehash has run, a link that was already saved and is shared again
   with a query string can be created as a duplicate.
 
-## Prod deploy (unchanged)
+## Prod deploy
 
-Push to `main` → GitHub Action → SSH to VPS → `deploy.sh update`.
+Push to Gitea `main` → Gitea Actions runner on the VPS → `deploy.sh update`
+(see `ops/GITEA-DEPLOY.md`).
 Branches `rework/**` run CI without deploying.
 
 ## App size and startup (measured 2026-10-14, v0.7.0)
